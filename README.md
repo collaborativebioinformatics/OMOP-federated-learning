@@ -60,3 +60,14 @@ Implement a federated learning POC for OMOP data. Might require a new dataloader
 - Visualize & explore existing OMOP datasets. Try to understand how to best apply federated learning to them.
 - Implement a custom dataloader for federated learning and apply it to a simple linear model. The accuracy or scientific outcome doesn't matter.
 - Create a pipeline that brings together subproject 1 & 2
+
+### Members 
+charles
+solvi
+Lukas
+maria
+Max
+Nik
+mia
+kev
+
