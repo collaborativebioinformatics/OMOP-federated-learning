@@ -62,12 +62,12 @@ Implement a federated learning POC for OMOP data. Might require a new dataloader
 - Create a pipeline that brings together subproject 1 & 2
 
 ### Members 
-charles
-solvi
-Lukas
-maria
-Max
-Nik
-mia
+-charles
+-solvi
+-lukas
+-maria
+-max
+-nik
+-mia
 kev
 
