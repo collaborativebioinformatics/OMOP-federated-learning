@@ -2,8 +2,9 @@
 
 1. missingness (missing values)
 2. all tables present
-3. check the format of the date
+3. check the format and logic of the data variables (ensure index date before end dates)
 4. check for fraction of successful OMOP conversions
+5. compare summary statistics of variables
 
 Can do these sanity checks with tools like: <br>
 Achilles <br>
