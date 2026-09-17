@@ -16,8 +16,8 @@ import yaml
 CONTRACT_FILE = Path(__file__).resolve().parent.parent / "contract.yaml"
 
 
-def load_contract() -> dict:
-    return yaml.safe_load(CONTRACT_FILE.read_text(encoding="utf-8"))
+def load_contract(path: Path | None = None) -> dict:
+    return yaml.safe_load(Path(path or CONTRACT_FILE).read_text(encoding="utf-8"))
 
 
 def read(path: Path) -> pd.DataFrame:
@@ -72,6 +72,20 @@ def check(site: Path, contract: dict | None = None) -> list[str]:
                 orphans = set(df["person_id"]) - persons
                 if orphans:
                     problems.append(f"{table}.person_id: {len(orphans)} IDs missing from person")
+    for rule in contract.get("plausible_ranges", []):
+        df = frames.get(rule["table"])
+        concept_column = rule.get("concept_column", "measurement_concept_id")
+        value_column = rule.get("value_column", "value_as_number")
+        if df is None or concept_column not in df or value_column not in df:
+            continue
+        rows = df[df[concept_column] == str(rule["concept_id"])]
+        values = pd.to_numeric(rows[value_column], errors="coerce").dropna()
+        outside = values[(values < rule["min"]) | (values > rule["max"])]
+        if len(outside):
+            problems.append(
+                f"{rule['table']} concept {rule['concept_id']}: {len(outside)} values outside "
+                f"{rule['min']}-{rule['max']}, e.g. {outside.iloc[0]}"
+            )
     return problems
 
 
@@ -111,8 +125,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("site", type=Path, help="output folder of one site")
     parser.add_argument("--reference", type=Path, help="trusted output for the same raw data")
+    parser.add_argument("--contract", type=Path, help="contract YAML, default omop_skill/contract.yaml")
     args = parser.parse_args()
-    contract = load_contract()
+    contract = load_contract(args.contract)
     problems = check(args.site, contract)
     print(f"Contract check for {args.site}:")
     print("  OK" if not problems else "\n".join(f"  - {p}" for p in problems))
