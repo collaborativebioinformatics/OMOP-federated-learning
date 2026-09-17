@@ -117,9 +117,9 @@ cython_debug/
 .vscode/
 .idea/
 
+# macOS
+.DS_Store
+
 # Large reproducible Synthea exports; keep compact cohort tables tracked.
 synthea_cohorts/*/data/source/
 synthea_cohorts/*/*.jar
-
-# macOS
-.DS_Store

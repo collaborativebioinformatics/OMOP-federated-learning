@@ -1,3 +1,5 @@
+#-------------Optional instructions to create OMOP style data from Synthea-----------------#
+
 # End-to-End Workflow: Synthea → OMOP CDM
 
 This guide covers two connected stages:

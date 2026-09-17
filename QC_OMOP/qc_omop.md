@@ -106,4 +106,3 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
 5. Document accepted/known issues — not everything flagged needs to be "fixed"; some reflect genuine source data limitations
 
 
-

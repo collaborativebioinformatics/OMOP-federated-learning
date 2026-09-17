@@ -6,7 +6,7 @@ from pathlib import Path
 from data import load_cohort, load_shard, save_shards
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_COHORT = HERE.parent / "synthea_cohorts" / "cohort_1" / "data" / "cohort"
+DEFAULT_COHORT = HERE.parents[1] / "synthea_cohorts" / "cohort_1" / "data" / "cohort"
 DEFAULT_OUTPUT = HERE / "data" / "shards"
 
 
