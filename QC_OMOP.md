@@ -5,6 +5,7 @@
 3. check the format and logic of the date variables (ensure index date before end dates)
 4. check for fraction of successful OMOP conversions
 5. compare summary statistics of variables
+6. ensure correct units
 
 These sanity checks should ideally be comparisons between raw data, our OMOP conversions, and the Synthea OMOP conversion.
 
