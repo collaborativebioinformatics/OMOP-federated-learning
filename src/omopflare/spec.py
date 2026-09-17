@@ -1,5 +1,3 @@
-"""The frozen contract every site in a federation extracts against."""
-
 from __future__ import annotations
 
 import json
@@ -32,12 +30,14 @@ DATE_COLUMN: dict[Domain, str] = {
 
 @dataclass(frozen=True, slots=True)
 class Feature:
-    """One column of the design matrix, pinned to a concept and a unit.
+    """One column of the design matrix.
 
-    ``unit_concept_id`` is required for numeric domains because ``value_as_number`` is meaningless without it;
-    glucose in mg/dL and mmol/L differ by roughly eighteen-fold.
-    ``plausible_range`` bounds are keyed on the concept and unit together, mirroring how the OHDSI Data Quality
-    Dashboard keys ``plausibleValueLow`` and ``plausibleValueHigh``.
+    Attributes:
+        name: Column name.
+        concept_id: Standard concept the feature reads.
+        domain: OMOP table the concept lives in.
+        unit_concept_id: Required for numeric domains; rows in other units are dropped.
+        plausible_range: Bounds on the value, keyed on concept and unit together.
     """
 
     name: str
@@ -59,11 +59,14 @@ class Feature:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSpec:
-    """An ordered, versioned feature schema shared by every site.
+    """An ordered feature schema shared by every site.
 
-    Position in ``features`` is the column index in the design matrix, so sites must never discover features from
-    their own data; a site missing a concept contributes an all-missing column rather than a narrower matrix.
-    ``vocabulary_version`` is recorded because concept IDs are deprecated and demoted between vocabulary releases.
+    Attributes:
+        features: Ordered features; position is the column index.
+        vocabulary_version: OMOP vocabulary release the concept IDs come from.
+        lookback_days: Window before each landmark.
+        missing_indicators: Append a ``<name>_missing`` column per numeric feature.
+        metadata: Free-form provenance.
     """
 
     features: tuple[Feature, ...]

@@ -1,16 +1,17 @@
-"""Landmarked feature extraction, evaluated in duckdb and streamed out in person blocks."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Literal
 
 import numpy as np
 import pyarrow as pa
+from scipy.sparse import csr_array
 
 from .source import OmopSource
 from .spec import CONCEPT_COLUMN, DATE_COLUMN, VALUE_COLUMN, Feature, FeatureSpec
 
 INDEX_TABLE = "omopflare_index"
+Layout = Literal["dense", "sparse", "auto"]
 
 
 def _numeric_case(feature: Feature, alias: str) -> str:
@@ -62,13 +63,21 @@ def extract(
     *,
     batch_size: int = 50_000,
 ) -> Iterator[pa.RecordBatch]:
-    """Yield design-matrix batches for the people in ``index``.
+    """Yield design-matrix batches for the people in an index table.
 
-    ``index`` needs a ``person_id`` and an ``index_date`` column, the landmark each patient's window ends at.
-    Only events strictly before the landmark and within ``lookback_days`` are read, so nothing after the prediction
-    time can leak into a feature.
-    Rows are also clipped to the patient's observation period, because absence outside that period is not evidence
-    that an event did not happen.
+    Reads only events strictly before each landmark, within ``lookback_days``, and inside the observation period.
+
+    Args:
+        source: The site to read from.
+        spec: The frozen feature schema shared across the federation.
+        index: Table with a ``person_id`` column and an ``index_date`` column giving each patient's landmark.
+        batch_size: Rows per yielded batch.
+
+    Yields:
+        One batch per ``batch_size`` people, with a ``person_id`` column and one ``f<position>`` column per feature.
+
+    Raises:
+        ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent from the site.
     """
     required = {"person_id", "index_date"}
     missing = required - set(index.column_names)
@@ -106,11 +115,38 @@ def extract(
     yield from source.connection.execute(query).to_arrow_reader(batch_size)
 
 
-def to_matrix(batch: pa.RecordBatch, spec: FeatureSpec) -> tuple[np.ndarray, np.ndarray]:
-    """Turn one extraction batch into person IDs and a dense float matrix.
+def to_matrix(
+    batch: pa.RecordBatch,
+    spec: FeatureSpec,
+    *,
+    layout: Layout = "dense",
+) -> tuple[np.ndarray, np.ndarray | csr_array]:
+    """Turn one extraction batch into person IDs and a design matrix.
 
-    Missing values stay as NaN so imputation is the caller's explicit decision rather than a silent zero.
+    ``dense`` keeps missing values as NaN. ``sparse`` returns CSR. ``auto`` uses sparse only for presence-only specs.
+
+    Args:
+        batch: A batch from :func:`extract`.
+        spec: The spec the batch was extracted with.
+        layout: One of ``dense``, ``sparse`` or ``auto``.
+
+    Returns:
+        The person IDs, and a matrix whose columns follow ``spec.column_names``.
+
+    Raises:
+        ValueError: If ``layout`` is unknown, or ``sparse`` is asked for a spec with numeric features.
     """
+    if layout not in ("dense", "sparse", "auto"):
+        raise ValueError(f"unknown layout {layout!r}")
+    presence_only = not any(f.is_numeric for f in spec.features)
+    if layout == "auto":
+        layout = "sparse" if presence_only and not spec.missing_indicators else "dense"
+    if layout == "sparse":
+        return _to_sparse(batch, spec, presence_only=presence_only)
+    return _to_dense(batch, spec)
+
+
+def _to_dense(batch: pa.RecordBatch, spec: FeatureSpec) -> tuple[np.ndarray, np.ndarray]:
     person_ids = np.asarray(batch.column("person_id"))
     columns = [np.asarray(batch.column(f"f{position}"), dtype=np.float64) for position in range(len(spec.features))]
     matrix = np.column_stack(columns) if columns else np.empty((len(person_ids), 0))
@@ -119,3 +155,20 @@ def to_matrix(batch: pa.RecordBatch, spec: FeatureSpec) -> tuple[np.ndarray, np.
         indicators = np.isnan(matrix[:, numeric]).astype(np.float64)
         matrix = np.hstack([matrix, indicators])
     return person_ids, matrix
+
+
+def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool) -> tuple[np.ndarray, csr_array]:
+    if not presence_only:
+        numeric = [f.name for f in spec.features if f.is_numeric]
+        raise ValueError(f"a sparse layout needs presence features only, got numeric {numeric}")
+
+    person_ids = np.asarray(batch.column("person_id"))
+    rows, columns = [], []
+    for position in range(len(spec.features)):
+        present = np.flatnonzero(np.asarray(batch.column(f"f{position}").is_valid()))
+        rows.append(present)
+        columns.append(np.full(present.size, position))
+    row = np.concatenate(rows) if rows else np.empty(0, dtype=int)
+    column = np.concatenate(columns) if columns else np.empty(0, dtype=int)
+    data = np.ones(row.size, dtype=np.float64)
+    return person_ids, csr_array((data, (row, column)), shape=(len(person_ids), len(spec.features)))

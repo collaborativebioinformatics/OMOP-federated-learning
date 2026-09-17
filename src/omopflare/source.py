@@ -1,5 +1,3 @@
-"""Read-only access to one site's OMOP tables, without loading them into Python."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -25,9 +23,9 @@ SUFFIXES = (".parquet", ".csv", ".csv.gz")
 class OmopSource:
     """A site's OMOP CDM tables, exposed to duckdb as views.
 
-    Tables stay on disk and are scanned with predicate push-down, so a MEASUREMENT table of billions of rows costs
-    memory only for the columns and rows a query actually keeps.
-    Parquet sorted by ``person_id`` is the fastest layout because a patient's rows are then contiguous.
+    Args:
+        path: Directory holding the CDM tables as Parquet or CSV.
+        connection: Existing duckdb connection; a new one is made if omitted.
     """
 
     def __init__(self, path: str | Path, *, connection: duckdb.DuckDBPyConnection | None = None) -> None:
@@ -68,7 +66,11 @@ class OmopSource:
         return tuple(column[0].lower() for column in rows)
 
     def vocabulary_version(self) -> str | None:
-        """Read the vocabulary release recorded in the VOCABULARY table, if the site ships one."""
+        """Vocabulary release recorded in the VOCABULARY table.
+
+        Returns:
+            The version string, or None if the site ships no VOCABULARY table.
+        """
         if not self.has("vocabulary"):
             return None
         row = self.connection.execute(
