@@ -136,3 +136,4 @@ synthea_cohorts/cohort_1/data/omop/
 synthea_cohorts/cohort_3/data/omop/
 examples/.bench_*/
 examples/omop_t2dm/workspace/
+examples/.synthea1k/

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import time
+import urllib.request
 from pathlib import Path
 
 import duckdb
@@ -15,9 +16,14 @@ import omopflare as of
 
 HERE = Path(__file__).parent
 OUT = HERE / "fl_benchmark.json"
-SITES = 5
-FEATURES = 20
-ROUNDS = 25
+CDM = HERE / ".synthea1k"
+BUCKET = "https://synthea-omop.s3.amazonaws.com/synthea1k"
+TABLES = ("person", "condition_occurrence", "drug_exposure", "observation_period")
+
+OUTCOME = 4217975
+LANDMARK = "2015-01-01"
+ROUNDS = 20
+SEEDS = 5
 
 
 class Net(nn.Module):
@@ -30,30 +36,78 @@ class Net(nn.Module):
         return self.net(x).squeeze(-1)
 
 
-def make_cohort(n: int, rng: np.random.Generator, beta: np.ndarray, shift: float) -> tuple[np.ndarray, np.ndarray]:
-    """Draw a site whose covariate means are shifted, so the sites are not identically distributed.
+def fetch() -> Path:
+    """Download the public Synthea OMOP CDM export, which needs no credentials."""
+    CDM.mkdir(exist_ok=True)
+    for table in TABLES:
+        target = CDM / f"{table}.csv"
+        if not target.exists():
+            urllib.request.urlretrieve(f"{BUCKET}/{table}.csv", target)
+    return CDM
+
+
+def cohort(source: of.OmopSource) -> tuple[np.ndarray, np.ndarray, of.FeatureSpec]:
+    """Build an incident-prediction cohort: who acquires the outcome after the landmark.
 
     Args:
-        n: Patients to draw.
-        rng: Source of randomness.
-        beta: Shared coefficients, so one model can fit every site.
-        shift: Per-site mean offset.
+        source: The CDM to read.
 
     Returns:
-        The covariates and the binary outcome.
+        The design matrix, the labels and the spec used.
     """
-    X = rng.normal(shift, 1.0, size=(n, len(beta)))
-    p = 1.0 / (1.0 + np.exp(-(X @ beta)))
-    return X, (rng.random(n) < p).astype(np.float64)
+    common = f"""
+        select condition_concept_id from condition_occurrence
+        where condition_concept_id > 0 and condition_concept_id <> {OUTCOME}
+          and condition_start_date < date '{LANDMARK}'
+        group by 1 having count(distinct person_id) >= 30 order by count(distinct person_id) desc limit 30
+    """
+    drugs = f"""
+        select drug_concept_id from drug_exposure
+        where drug_concept_id > 0 and drug_exposure_start_date < date '{LANDMARK}'
+        group by 1 having count(distinct person_id) >= 30 order by count(distinct person_id) desc limit 30
+    """
+    spec = of.FeatureSpec(
+        features=tuple(
+            [of.Feature(f"c{r[0]}", r[0], "condition_occurrence") for r in source.sql(common).fetchall()]
+            + [of.Feature(f"d{r[0]}", r[0], "drug_exposure") for r in source.sql(drugs).fetchall()]
+        ),
+        vocabulary_version="synthea-omop-1k",
+        lookback_days=3650,
+    )
+    index = f"""
+        select p.person_id, date '{LANDMARK}' as index_date, 2015 - p.year_of_birth as age,
+               cast(max(case when c.condition_concept_id = {OUTCOME}
+                             and c.condition_start_date >= date '{LANDMARK}' then 1 else 0 end) as double) as label
+        from person p
+        left join condition_occurrence c on c.person_id = p.person_id
+        where p.person_id not in (
+            select person_id from condition_occurrence
+            where condition_concept_id = {OUTCOME} and condition_start_date < date '{LANDMARK}'
+        )
+        group by p.person_id, p.year_of_birth
+    """
+    ids, X = of.design_matrix(source, spec, index)
+    table = source.sql(index).arrow().read_all()
+    meta = dict(
+        zip(
+            table.column("person_id").to_pylist(),
+            zip(table.column("age").to_pylist(), table.column("label").to_pylist(), strict=True),
+            strict=True,
+        )
+    )
+    age = np.array([[meta[int(i)][0]] for i in ids], dtype=np.float64)
+    y = np.array([meta[int(i)][1] for i in ids], dtype=np.float64)
+    return np.hstack([np.nan_to_num(X), age]), y, spec
 
 
 def fit(X: np.ndarray, y: np.ndarray, epochs: int, init: dict | None = None) -> Net:
     model = Net(X.shape[1])
     if init is not None:
         model.load_state_dict(init)
-    loader = of.dataloader(of.CohortDataset(X, y), batch_size=64, shuffle=True)
-    criterion = nn.BCEWithLogitsLoss()
+    positives = max(y.sum(), 1.0)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor((len(y) - positives) / positives, dtype=torch.float32))
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+    loader = of.dataloader(of.CohortDataset(X, y), batch_size=32, shuffle=True)
     model.train()
     for _ in range(epochs):
         for features, labels in loader:
@@ -66,8 +120,7 @@ def fit(X: np.ndarray, y: np.ndarray, epochs: int, init: dict | None = None) -> 
 def auroc(model: Net, X: np.ndarray, y: np.ndarray) -> float:
     model.eval()
     with torch.no_grad():
-        scores = torch.sigmoid(model(torch.from_numpy(X).float())).numpy()
-    return float(roc_auc_score(y, scores))
+        return float(roc_auc_score(y, torch.sigmoid(model(torch.from_numpy(X).float())).numpy()))
 
 
 def fedavg(shards: list[tuple[np.ndarray, np.ndarray]], rounds: int = ROUNDS) -> Net:
@@ -83,20 +136,41 @@ def fedavg(shards: list[tuple[np.ndarray, np.ndarray]], rounds: int = ROUNDS) ->
     return model
 
 
-def accuracy_curve() -> list[dict[str, float]]:
-    rng = np.random.default_rng(0)
-    beta = rng.normal(0, 0.6, size=FEATURES)
-    shifts = np.linspace(-0.6, 0.6, SITES)
-    Xte, yte = make_cohort(20000, np.random.default_rng(7), beta, 0.0)
+def fragmentation_curve() -> list[dict[str, float]]:
+    """Hold the total cohort fixed and split it across more and more sites."""
+    X, y, spec = cohort(of.OmopSource(fetch()))
+    print(f"cohort {len(y)} patients, {int(y.sum())} events, {X.shape[1]} features ({spec.width} from the spec)")
 
     rows = []
-    for n in (50, 100, 250, 500, 1000, 2500):
-        shards = [make_cohort(n, rng, beta, s) for s in shifts]
-        local = float(np.mean([auroc(fit(X, y, 30), Xte, yte) for X, y in shards]))
-        federated = auroc(fedavg(shards), Xte, yte)
-        pooled = auroc(fit(np.vstack([s[0] for s in shards]), np.concatenate([s[1] for s in shards]), 30), Xte, yte)
-        rows.append({"per_site_n": n, "local": local, "federated": federated, "centralized": pooled})
-        print(f"n={n:5d}/site  local {local:.3f}  federated {federated:.3f}  centralized {pooled:.3f}", flush=True)
+    for sites in (1, 2, 4, 8, 16):
+        local, federated, pooled = [], [], []
+        for seed in range(SEEDS):
+            rng = np.random.default_rng(seed)
+            order = rng.permutation(len(y))
+            cut = int(0.7 * len(y))
+            train, test = order[:cut], order[cut:]
+            Xtr, ytr, Xte, yte = X[train], y[train], X[test], y[test]
+            scaler = of.SiteStats.from_matrix(Xtr)
+            Xtr, Xte = of.standardize(Xtr, scaler), of.standardize(Xte, scaler)
+
+            parts = np.array_split(rng.permutation(len(ytr)), sites)
+            shards = [(Xtr[p], ytr[p]) for p in parts if ytr[p].sum() > 0]
+            local.append(float(np.mean([auroc(fit(sx, sy, 40), Xte, yte) for sx, sy in shards])))
+            federated.append(auroc(fedavg(shards), Xte, yte))
+            pooled.append(auroc(fit(Xtr, ytr, 40), Xte, yte))
+        row = {
+            "sites": sites,
+            "patients_per_site": int(0.7 * len(y) / sites),
+            "local": float(np.mean(local)),
+            "federated": float(np.mean(federated)),
+            "centralized": float(np.mean(pooled)),
+        }
+        rows.append(row)
+        print(
+            f"{sites:2d} sites ({row['patients_per_site']:3d}/site)  "
+            f"local {row['local']:.3f}  federated {row['federated']:.3f}  centralized {row['centralized']:.3f}",
+            flush=True,
+        )
     return rows
 
 
@@ -139,8 +213,7 @@ def throughput() -> list[dict[str, float]]:
 
 
 if __name__ == "__main__":
-    print("accuracy")
-    accuracy = accuracy_curve()
-    print("\nthroughput")
+    accuracy = fragmentation_curve()
+    print()
     scale = throughput()
     OUT.write_text(json.dumps({"accuracy": accuracy, "throughput": scale}, indent=2) + "\n")

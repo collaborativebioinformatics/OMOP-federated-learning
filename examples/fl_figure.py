@@ -21,12 +21,12 @@ def thousands(value: float, _: int) -> str:
 def main() -> None:
     payload = json.loads(DATA.read_text())
     accuracy, throughput = payload["accuracy"], payload["throughput"]
-    ns = [row["per_site_n"] for row in accuracy]
+    ns = [row["sites"] for row in accuracy]
 
-    fig, (left, right) = plt.subplots(1, 2, figsize=(12.5, 4.8), facecolor=SURFACE)
-    fig.subplots_adjust(wspace=0.28, right=0.88)
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13.5, 4.8), facecolor=SURFACE)
+    fig.subplots_adjust(wspace=0.42, right=0.9)
 
-    nudge = {"centralized": -11, "federated": 7, "local": 0}
+    nudge = {"centralized": -10, "federated": 8, "local": 0}
     for name, color in SERIES.items():
         values = [row[name] for row in accuracy]
         left.plot(ns, values, color=color, lw=2, marker="o", ms=6, zorder=3)
@@ -42,10 +42,11 @@ def main() -> None:
     left.set_xscale("log")
     left.set_xticks(ns)
     left.xaxis.set_major_formatter(FuncFormatter(thousands))
-    left.set_xlabel("patients per site", color=MUTED, fontsize=10)
+    left.set_xticklabels([f"{row['sites']}\n{row['patients_per_site']}/site" for row in accuracy])
+    left.set_xlabel("sites the same cohort is split across", color=MUTED, fontsize=10)
     left.set_ylabel("AUROC on a common test set", color=MUTED, fontsize=10)
     left.set_title(
-        "Federation closes most of the gap to pooling,\nand the gap is widest when sites are small",
+        "Fragmenting a cohort costs a local model\n10 AUROC points; federating recovers them",
         color=INK,
         fontsize=12,
         loc="left",
@@ -70,11 +71,11 @@ def main() -> None:
 
     labels = [f"{s:,}\n{rows_label(row['events'])}" for s, row in zip(sizes, throughput, strict=True)]
     right.set_xticklabels(labels)
-    right.set_xlabel("patients per site", color=MUTED, fontsize=10)
+    right.set_xlabel("patients in one site", color=MUTED, fontsize=10)
     right.set_ylabel("seconds to build the design matrix", color=MUTED, fontsize=10)
     right.set_ylim(0, max(seconds) * 1.35)
     right.set_title(
-        "Extraction stays sub-second to 50M measurement rows\nbecause the scan never leaves DuckDB",
+        "Design matrix build time stays sub-second\nto 50M rows; the scan never leaves DuckDB",
         color=INK,
         fontsize=12,
         loc="left",
