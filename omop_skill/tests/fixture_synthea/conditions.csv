@@ -1,0 +1,5 @@
+START,STOP,PATIENT,ENCOUNTER,SYSTEM,CODE,DESCRIPTION
+2015-04-01,,p-2,e-3,SNOMED-CT,44054006,Diabetes mellitus type 2 (disorder)
+2010-01-01,,p-1,e-1,SNOMED-CT,59621000,Essential hypertension (disorder)
+2021-06-01,,p-4,e-4,SNOMED-CT,44054006,Diabetes mellitus type 2 (disorder)
+2022-01-01,,p-9,e-9,SNOMED-CT,44054006,Diabetes mellitus type 2 (disorder)

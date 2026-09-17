@@ -1,0 +1,38 @@
+# Machine-readable version of contract/data_contract.md (version 2026-09-17), sections 4 and 5.
+# Change both files together.
+# gender_concept_id and unit_concept_id also allow 0 for unmapped values, as synthea_datasets/build.py writes them.
+version: "2026-09-17"
+tables:
+  person:
+    columns:
+      person_id: {type: integer}
+      gender_concept_id: {type: integer, allowed: [8507, 8532, 0]}
+      year_of_birth: {type: integer}
+      race_concept_id: {type: integer, allowed: [0]}
+      ethnicity_concept_id: {type: integer, allowed: [0]}
+      person_source_value: {type: text}
+  observation_period:
+    columns:
+      observation_period_id: {type: integer}
+      person_id: {type: integer}
+      observation_period_start_date: {type: date}
+      observation_period_end_date: {type: date}
+      period_type_concept_id: {type: integer, allowed: [32817]}
+  measurement:
+    columns:
+      measurement_id: {type: integer}
+      person_id: {type: integer}
+      measurement_concept_id: {type: integer, allowed: [3038553, 3004249]}
+      measurement_date: {type: date}
+      measurement_type_concept_id: {type: integer, allowed: [32817]}
+      value_as_number: {type: decimal, required: false}
+      unit_concept_id: {type: integer, allowed: [9531, 8876, 0]}
+      measurement_source_value: {type: text}
+  condition_occurrence:
+    columns:
+      condition_occurrence_id: {type: integer}
+      person_id: {type: integer}
+      condition_concept_id: {type: integer, allowed: [201826]}
+      condition_start_date: {type: date}
+      condition_type_concept_id: {type: integer, allowed: [32817]}
+      condition_source_value: {type: text}

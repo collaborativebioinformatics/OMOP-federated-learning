@@ -1,0 +1,5 @@
+Id,BIRTHDATE,DEATHDATE,SSN,DRIVERS,PASSPORT,PREFIX,FIRST,MIDDLE,LAST,SUFFIX,MAIDEN,MARITAL,RACE,ETHNICITY,GENDER,BIRTHPLACE,ADDRESS,CITY,STATE,COUNTY,FIPS,ZIP,LAT,LON,HEALTHCARE_EXPENSES,HEALTHCARE_COVERAGE,INCOME
+p-1,1950-03-02,,,,,,,,,,,,white,nonhispanic,M,,,,Massachusetts,,,,,,,,
+p-2,1980-07-15,,,,,,,,,,,,black,nonhispanic,F,,,,Massachusetts,,,,,,,,
+p-3,2001-01-01,,,,,,,,,,,,asian,nonhispanic,F,,,,Massachusetts,,,,,,,,
+p-4,1965-12-31,,,,,,,,,,,,white,hispanic,O,,,,Massachusetts,,,,,,,,
