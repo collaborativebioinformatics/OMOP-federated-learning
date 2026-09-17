@@ -134,3 +134,5 @@ examples/omop_t2dm/spec.json
 # Derived OMOP tables; regenerate with synthea_cohorts/to_omop.py
 synthea_cohorts/cohort_1/data/omop/
 synthea_cohorts/cohort_3/data/omop/
+examples/.bench_*/
+examples/omop_t2dm/workspace/

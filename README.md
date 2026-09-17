@@ -39,8 +39,6 @@ flowchart TB
 **Subproject 2** runs federated learning over the result.
 The diagram above is the plan; `plan.md` has the schedule.
 
-Python throughout.
-
 ## Layout
 
 | path | what |
