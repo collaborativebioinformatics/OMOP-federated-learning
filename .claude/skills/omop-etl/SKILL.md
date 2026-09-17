@@ -9,6 +9,15 @@ Turns raw source CSVs into the OMOP tables of `contract/data_contract.md`, one f
 
 Existing software does the heavy lifting. DuckDB profiles the source and runs the mapping, pandas checks the result. Your part is the step no tool automates: writing the mapping.
 
+## Reference
+
+- [OMOP Common Data Model documentation (OHDSI)](https://ohdsi.github.io/CommonDataModel/)
+- [OMOP CDM v5.4 tables and fields](https://ohdsi.github.io/CommonDataModel/cdm54.html), the version the data contract uses
+- [Athena](https://athena.ohdsi.org/), the OMOP standardized vocabularies, to look up and confirm concept IDs
+- [The Book of OHDSI, ETL chapter](https://ohdsi.github.io/TheBookOfOhdsi/ExtractTransformLoad.html)
+
+When `contract.yaml` doesn't answer a mapping question, look up the table and field definitions in the CDM v5.4 documentation instead of relying on memory.
+
 ## Inputs
 
 - A folder of raw `.csv` or `.csv.gz` files per site, for example `synthea_cohorts/cohort_2/data/source_compact/site_a/`
