@@ -14,6 +14,8 @@ python3 ukb_omop_agent/ukb/make_ukb_subset.py \
   --output ukb_omop_agent/ukb/data/ukb_e11_pilot --all-e11
 ```
 
+These are **source-preparation steps, not OMOP mapping**. The first command saves the first 10,000 rows from each relevant UKB synthetic field-group file in `ukb_sampled/` and checks that the EIDs line up. The second command scans that sample for participants with at least one diagnosis code beginning `E11` and writes **all** such participants to `ukb_subset.tsv`; `--all-e11` does not impose a limit of 20 or 200 people. Their selected fields, including other diagnosis codes, stay in the TSV. Only the later `--diagnosis-prefix E11` option on `general_agent.py` limits which diagnosis events are inspected and mapped. For example, the source code `E119` (E11.9) is part of the E11 family and gets its own review row. Neither preparation command assigns an OMOP concept.
+
 ```bash
 export UKB_TSV=ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv
 export ATHENA_DIR=/path/to/athena_vocabulary
@@ -72,7 +74,7 @@ The UKB specification declares sex, birth year, BMI, systolic blood pressure, IC
 
 ### Select diagnoses
 
-Add `--diagnosis-code E110` for one exact ICD10 code (equivalent to `E11.0`), or `--diagnosis-prefix E11` for the E11 family. Repeat either flag to select more codes or families; selections are combined. Use **the same flags** on `inspect`, `apply`, and `qc`. The preflight records the selection and rejects a later apply/QC run with different flags. The selection filters ICD10 diagnosis events; people and non-diagnosis measurements remain in the output. Without either flag, every ICD10 diagnosis in the input is considered.
+Add `--diagnosis-code E110` for one exact ICD10 code (equivalent to `E11.0`), or `--diagnosis-prefix E11` for the E11 family. `--diagnosis-code E11` would match only a literal `E11` source code, not `E110` through `E119`. Repeat either flag to select more codes or families; selections are combined. Use **the same flags** on `inspect`, `apply`, and `qc`. The preflight records the selection and rejects a later apply/QC run with different flags. This diagnosis-event filter is separate from `make_ukb_subset.py --all-e11`, which selects participants. People and non-diagnosis measurements remain in the OMOP output. Without either diagnosis flag, every ICD10 diagnosis in the input is considered.
 
 The output is a **pilot subset** of OMOP 5.4 tables: person, observation_period, condition_occurrence, measurement, observation, and procedure_occurrence. Unapproved source events remain with concept ID 0 in the configured fallback domain. The QC checks exact replay, unique row IDs, and person foreign keys. It also reports input events, mapped events by field, exclusions, and unknown units. Coverage and replay QC do not establish clinical correctness.
 

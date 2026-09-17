@@ -25,9 +25,9 @@ python3 ukb_omop_agent/ukb/make_ukb_subset.py \
   --all-e11
 ```
 
-The sampler takes the first 10,000 records from each relevant field-group file and verifies that their EIDs align. Because the files are partial extracts, the published whole-file MD5 checksums cannot verify them. The subset command selects every participant with an E11-family code in that sample; the number selected depends on the downloaded data.
+The sampler takes the first 10,000 records from each relevant field-group file and verifies that their EIDs align. Because the files are partial extracts, the published whole-file MD5 checksums cannot verify them. The subset command then selects **every participant** with a diagnosis code starting `E11` in that sample, without a fixed participant or case count. It keeps all seven selected fields for those people, including diagnosis codes outside the E11 family. The number selected depends on the downloaded data.
 
-The result is `ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv` plus a `manifest.json`. The TSV has one row per selected EID and retains available instances and arrays for the seven fields. It is source data, **not yet OMOP**.
+The result is `ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv` plus a `manifest.json`. The TSV has one row per selected EID and retains available instances and arrays for the seven fields. It is source data, **not yet OMOP**. Later, `general_agent.py --diagnosis-prefix E11` selects only E11-family diagnosis events for OMOP review and mapping; that flag does not change who is in the TSV.
 
 ## Download complete field-group files instead
 
