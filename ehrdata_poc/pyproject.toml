@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 [project]
 name = "ehrdata-poc"
 version = "0.1.0"
@@ -17,7 +15,6 @@ dependencies = [
     "ipykernel>=7.3.0",
 ]
 
->>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 [tool.ruff]
 line-length = 120
 

@@ -5,10 +5,6 @@ A small end-to-end demo: an ICU cohort is loaded as EHRData, explored with ehrap
 ## Pipeline
 
 ```bash
-<<<<<<< HEAD
-python prepare.py     # PhysioNet 2012 -> EHRData -> per-site shards + hourly.h5ed
-python federate.py    # NVFlare FedAvg across the four ICUs
-=======
 python run.py             # build_dataset.py, then federate.py
 ```
 
@@ -17,16 +13,11 @@ Or step by step:
 ```bash
 python build_dataset.py   # PhysioNet 2012 -> EHRData -> per-site shards + hourly.h5ed
 python federate.py        # NVFlare FedAvg across the four ICUs
->>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 ```
 
 Then work through the notebooks on the `Python (nvflare)` kernel, in order.
 
-<<<<<<< HEAD
-`01_explore.ipynb` explores the cohort with ehrapy and writes back the UMAP embedding, tensor intact.
-=======
 `01_explore.ipynb` explores the cohort with ehrapy and writes the object back to `hourly.h5ed` with the UMAP embedding, tensor intact.
->>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 `02_federated_results.ipynb` compares the federated model against local-only and centralized baselines and projects its risk scores onto that embedding.
 
 `data.py`, `model.py` and `training.py` are shared by the scripts and the notebooks.
@@ -78,47 +69,7 @@ Federation beats every site's own local model on its own patients, which is the 
 
 Training seeds are not pinned, so the numbers move slightly between runs while the ordering holds.
 
-<<<<<<< HEAD
-## Why not OMOP
-
-This started on GiBleed (OHDSI Eunomia, CDM 5.3) loaded through `ehrdata.io.omop`, which worked but could not support the analysis.
-Two things killed it.
-
-Its namesake outcome is unlearnable: every drug's GI hemorrhage rate sits at the base prevalence of 0.178, including celecoxib and ibuprofen, and a centralized model reaches AUROC 0.46-0.51.
-Peptic ulcer was learnable but only to about 0.61.
-
-More importantly the drug exposure tensor is 98.5% NaN and contains exactly one distinct value, `1.0`, because `is_present` encodes absence as NaN rather than zero.
-With 13.9 distinct drugs per patient out of 113, that sparsity is inherent rather than a defect, but it leaves no trajectory to model.
-DTW needs dense numeric series, and GiBleed has zero non-null `value_as_number` across all 44053 measurement rows.
-Synthea27NJ has real numeric measurements but only 28 patients, too few to federate.
-
-PhysioNet 2012 is not OMOP, which is the cost of the switch.
-It buys real trajectories, a real outcome, and sites that are actual ICUs rather than an artificial split.
-
-## Notes
-
-### Dynamic time warping
-
-`01_explore.ipynb` builds the neighbor graph two ways: from the flattened hourly representation with a euclidean metric, and from trajectory alignment with `ep.pp.neighbors(edata, metric="dtw", use_rep=...)` on the 3D tensor.
-`use_rep` must name a 3D array in `.layers` or `.obsm`; passing `"X"` raises.
-
-Variables must be scaled first.
-Raw units span three orders of magnitude, from a standard deviation of 0.00 for `MechVent` to 1649 for `AST`, so an unscaled distance tracks whichever high-variance variable happens to be observed.
-Scoring the neighbor graph by how often neighbors share an outcome, against 0.786 expected by chance, gives 0.802 on raw units and 0.848 after scaling.
-
-Coverage also limits what the metric can do: `timeseries_distance` only uses variables where both patients have more than three observed timepoints, and a median pair shares just 9 of 37.
-Only `GCS`, `HR`, `Temp` and `Urine` clear that bar for more than 90% of patients.
-
-DTW is quadratic in patients, so the notebook uses a stratified subsample of 500; the full cohort extrapolates to roughly a day.
-Parallelizing it through `neighbors(transformer=KNeighborsTransformer(..., n_jobs=-1))` is slower, not faster, because joblib ships the tensor to every worker.
-
-Only `ep.tl.rank_features_groups` and the euclidean `pca`/`neighbors` path are 2D-only.
-`ep.pp.qc_metrics` and `neighbors(metric="dtw")` operate on the 3D tensor directly.
-
-### NVFlare
-=======
 ## NVFlare
->>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 
 `federate.py` uses the 2.9 Recipe API (`FedAvgRecipe` + `SimEnv` + `set_per_site_config`) rather than the older `FedAvgJob` + `ScriptRunner` + `simulator_run`.
 The recipe takes `model=` and `min_clients=` where the job takes `initial_model=` and `n_clients=`.
@@ -133,15 +84,6 @@ The server reconstructs the initial model through `FedJobConfig._get_args`, whic
 `SimEnv` nests its output under `{workspace_root}/{recipe name}/server/simulate_job/app_server/`, which is where `best_FL_global_model.pt` lands.
 The per-round server log is one level up, at `{workspace_root}/{recipe name}/server/log.txt`.
 
-<<<<<<< HEAD
-### ehrdata
-
-The OMOP path hit a round-trip bug: `ed.io.write_h5ed` cannot write what `ed.io.omop.setup_obs` produces, because of datetime64 and all-null object columns.
-Reported as [theislab/ehrdata#303](https://github.com/theislab/ehrdata/issues/303).
-Nothing in this repo works around it any more, since `physionet2012` returns an EHRData that writes cleanly.
-
-=======
->>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 ## Development
 
 `ruff check .` and `ruff format .` are configured in `pyproject.toml` at line length 120, and cover the notebooks as well as the modules.
