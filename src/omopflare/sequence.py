@@ -141,7 +141,7 @@ def to_ehrdata(person_ids: np.ndarray, tensor: sparse.COO, spec: FeatureSpec) ->
         spec: The spec the tensor was extracted with.
 
     Returns:
-        An ``EHRData`` whose ``X`` is the patient by feature by time-bin tensor.
+        An ``EHRData`` whose ``X`` is the sparse tensor, kept sparse rather than densified.
 
     Raises:
         ImportError: If ehrdata is not installed.
@@ -167,4 +167,4 @@ def to_ehrdata(person_ids: np.ndarray, tensor: sparse.COO, spec: FeatureSpec) ->
         {"days_before_index": [round(spec.lookback_days - (i + 1) * width, 3) for i in range(bins)]},
         index=pd.Index([str(i) for i in range(bins)], name="bin"),
     )
-    return EHRData(X=tensor.todense(), obs=obs, var=var, tem=tem)
+    return EHRData(X=tensor, obs=obs, var=var, tem=tem)

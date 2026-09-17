@@ -44,4 +44,4 @@ for person_ids, tensor in of.extract_sequence(source, spec, index, bins=10, aggr
     edata = of.to_ehrdata(person_ids, tensor, spec)
 ```
 
-On `cohort_2/site_c` that is 1128 by 2 by 10 at about 5% density.
+On `cohort_2/site_c` that is 1128 by 2 by 10 at about 5% density, and `to_ehrdata` keeps it sparse.

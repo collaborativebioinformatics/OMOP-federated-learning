@@ -204,6 +204,15 @@ def test_sequence_rejects_zero_bins(site, spec, index):
         next(of.extract_sequence(site, spec, index, bins=0))
 
 
+def test_to_ehrdata_keeps_the_tensor_sparse(site, spec, index):
+    import sparse
+
+    ids, tensor = next(of.extract_sequence(site, spec, index, bins=5))
+    edata = of.to_ehrdata(ids, tensor, spec)
+    assert isinstance(edata.X, sparse.SparseArray)
+    assert edata.X.nnz == tensor.nnz
+
+
 def test_to_ehrdata_carries_the_spec(site, spec, index):
     ids, tensor = next(of.extract_sequence(site, spec, index, bins=5))
     edata = of.to_ehrdata(ids, tensor, spec)
