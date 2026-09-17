@@ -6,6 +6,8 @@
 4. check for fraction of successful OMOP conversions
 5. compare summary statistics of variables
 
+These sanity checks should ideally be comparisons between raw data, our OMOP conversions, and the Synthea OMOP conversion.
+
 Can do these sanity checks with tools like: <br>
 ## Achilles <br>
 R package: OHDSI/Achilles <br>
