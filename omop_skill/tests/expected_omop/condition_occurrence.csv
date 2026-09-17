@@ -1,0 +1,3 @@
+condition_occurrence_id,person_id,condition_concept_id,condition_start_date,condition_type_concept_id,condition_source_value
+1,2,201826,2015-04-01,32817,44054006
+2,4,201826,2021-06-01,32817,44054006

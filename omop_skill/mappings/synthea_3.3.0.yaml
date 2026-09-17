@@ -1,0 +1,70 @@
+# Synthea 3.3.0 CSV export -> OMOP tables of contract/data_contract.md (version 2026-09-17).
+# Gives the same tables as the hand-written mapping in synthea_datasets/build.py.
+source: synthea-3.3.0
+
+files:
+  patients: patients.csv
+  encounters: encounters.csv
+  observations: observations.csv
+  conditions: conditions.csv
+
+concept_maps:
+  gender:
+    "M": 8507
+    "F": 8532
+  measurement:
+    "39156-5": 3038553  # Body mass index
+    "8480-6": 3004249   # Systolic blood pressure
+  unit:
+    "kg/m2": 9531
+    "mm[Hg]": 8876
+  condition:
+    "44054006": 201826  # Type 2 diabetes mellitus
+
+tables:
+  person:
+    from: patients
+    columns:
+      person_id: row_number() OVER (ORDER BY src_row)
+      gender_concept_id: coalesce(omop_concept('gender', GENDER), 0)
+      year_of_birth: CAST(substr(BIRTHDATE, 1, 4) AS INTEGER)
+      race_concept_id: 0
+      ethnicity_concept_id: 0
+      person_source_value: Id
+
+  observation_period:
+    from: encounters e
+    join: JOIN omop_person p ON p.person_source_value = e.PATIENT
+    group_by: p.person_id
+    columns:
+      observation_period_id: row_number() OVER (ORDER BY p.person_id)
+      person_id: p.person_id
+      observation_period_start_date: omop_date(min(e.START))
+      observation_period_end_date: omop_date(max(e.STOP))
+      period_type_concept_id: 32817
+
+  measurement:
+    from: observations o
+    join: JOIN omop_person p ON p.person_source_value = o.PATIENT
+    where: o.CODE IN (SELECT * FROM omop_codes('measurement'))
+    columns:
+      measurement_id: row_number() OVER (ORDER BY o.src_row)
+      person_id: p.person_id
+      measurement_concept_id: omop_concept('measurement', o.CODE)
+      measurement_date: omop_date(o.DATE)
+      measurement_type_concept_id: 32817
+      value_as_number: TRY_CAST(o.VALUE AS DOUBLE)
+      unit_concept_id: coalesce(omop_concept('unit', o.UNITS), 0)
+      measurement_source_value: o.CODE
+
+  condition_occurrence:
+    from: conditions c
+    join: JOIN omop_person p ON p.person_source_value = c.PATIENT
+    where: c.CODE IN (SELECT * FROM omop_codes('condition'))
+    columns:
+      condition_occurrence_id: row_number() OVER (ORDER BY c.src_row)
+      person_id: p.person_id
+      condition_concept_id: omop_concept('condition', c.CODE)
+      condition_start_date: omop_date(c.START)
+      condition_type_concept_id: 32817
+      condition_source_value: c.CODE
