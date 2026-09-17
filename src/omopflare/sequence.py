@@ -36,7 +36,7 @@ def _feature_table(spec: FeatureSpec) -> pa.Table:
 def _domain_query(domain: str, spec: FeatureSpec, bins: int, aggregate: Aggregate) -> str:
     date = DATE_COLUMN[domain]  # type: ignore[index]
     value_column = VALUE_COLUMN[domain]  # type: ignore[index]
-    value = f"e.{value_column}" if value_column else "1.0"
+    value = f"try_cast(e.{value_column} as double)" if value_column else "1.0"
     unit_guard = "and (f.unit_concept_id is null or e.unit_concept_id = f.unit_concept_id)" if value_column else ""
     range_guard = f"and (f.low is null or {value} between f.low and f.high)" if value_column else ""
     reducer = {
@@ -93,6 +93,7 @@ def extract_sequence(
     """
     if bins <= 0:
         raise ValueError(f"bins must be positive, got {bins}")
+    index = index.rename_columns([name.lower() for name in index.column_names])
     missing = {"person_id", "index_date"} - set(index.column_names)
     if missing:
         raise ValueError(f"index table is missing {sorted(missing)}")

@@ -248,3 +248,33 @@ def test_propose_spec_min_sites_relaxes_the_intersection(spec):
 def test_propose_spec_raises_when_nothing_qualifies(spec):
     with pytest.raises(ValueError, match="no candidate reached"):
         of.propose_spec([{"bmi": 0, "t2dm": 0}], spec.features, vocabulary_version="v5.0", lookback_days=365)
+
+
+@pytest.fixture
+def ohdsi_site(tmp_path):
+    """A site in OHDSI export style: uppercase file names, uppercase columns, quoted empty numerics."""
+    (tmp_path / "PERSON.csv").write_text("PERSON_ID,YEAR_OF_BIRTH\n1,1970\n2,1980\n")
+    (tmp_path / "MEASUREMENT.csv").write_text(
+        "PERSON_ID,MEASUREMENT_CONCEPT_ID,MEASUREMENT_DATE,VALUE_AS_NUMBER,UNIT_CONCEPT_ID\n"
+        "1,3038553,2020-06-01,25.0,9531\n"
+        "2,3038553,2020-06-01,,9531\n"
+    )
+    (tmp_path / "CONDITION_OCCURRENCE.csv").write_text(
+        "PERSON_ID,CONDITION_CONCEPT_ID,CONDITION_START_DATE\n1,201826,2020-09-01\n"
+    )
+    return of.OmopSource(tmp_path)
+
+
+def test_uppercase_tables_are_discovered(ohdsi_site):
+    assert ohdsi_site.has("person")
+    assert ohdsi_site.count("measurement") == 2
+
+
+def test_uppercase_columns_extract(ohdsi_site, spec):
+    index = ohdsi_site.sql("select person_id, date '2021-01-01' as index_date from person").arrow().read_all()
+    rows = {}
+    for batch in of.extract(ohdsi_site, spec, index):
+        ids, values = of.to_matrix(batch, spec)
+        rows.update({int(p): r for p, r in zip(ids, values, strict=True)})
+    assert rows[1][0] == 25.0
+    assert np.isnan(rows[2][0])

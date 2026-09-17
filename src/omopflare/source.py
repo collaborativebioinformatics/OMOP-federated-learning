@@ -36,15 +36,20 @@ class OmopSource:
         self._tables = self._register()
 
     def _register(self) -> Mapping[str, Path]:
+        by_stem: dict[str, Path] = {}
+        for candidate in sorted(self.path.iterdir()):
+            for suffix in SUFFIXES:
+                if candidate.name.lower().endswith(suffix):
+                    by_stem.setdefault(candidate.name[: -len(suffix)].lower(), candidate)
+                    break
+
         found: dict[str, Path] = {}
         for table in CDM_TABLES:
-            for suffix in SUFFIXES:
-                candidate = self.path / f"{table}{suffix}"
-                if candidate.exists():
-                    reader = "read_parquet" if suffix == ".parquet" else "read_csv"
-                    self.connection.execute(f"create or replace view {table} as select * from {reader}('{candidate}')")
-                    found[table] = candidate
-                    break
+            if (path := by_stem.get(table)) is None:
+                continue
+            reader = "read_parquet" if path.suffix == ".parquet" else "read_csv"
+            self.connection.execute(f"create or replace view {table} as select * from {reader}('{path}')")
+            found[table] = path
         if "person" not in found:
             raise FileNotFoundError(f"no person table under {self.path}")
         return found

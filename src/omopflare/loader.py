@@ -71,6 +71,7 @@ class StreamingCohort(IterableDataset):
         shuffle_buffer: int = 0,
         layout: Layout = "auto",
     ) -> None:
+        index = index.rename_columns([name.lower() for name in index.column_names])
         if "label" not in index.column_names:
             raise ValueError("index table needs a label column")
         self.source = source

@@ -15,14 +15,14 @@ Layout = Literal["dense", "sparse", "auto"]
 
 
 def _numeric_case(feature: Feature, alias: str) -> str:
-    value = VALUE_COLUMN[feature.domain]
+    value = f"try_cast(e.{VALUE_COLUMN[feature.domain]} as double)"
     guards = [f"e.{CONCEPT_COLUMN[feature.domain]} = {feature.concept_id}"]
     if feature.unit_concept_id is not None:
         guards.append(f"e.unit_concept_id = {feature.unit_concept_id}")
     if feature.plausible_range is not None:
         low, high = feature.plausible_range
-        guards.append(f"e.{value} between {low} and {high}")
-    return f"case when {' and '.join(guards)} then e.{value} end as {alias}"
+        guards.append(f"{value} between {low} and {high}")
+    return f"case when {' and '.join(guards)} then {value} end as {alias}"
 
 
 def _presence_case(feature: Feature, alias: str) -> str:
@@ -56,6 +56,10 @@ def _domain_query(source: OmopSource, spec: FeatureSpec, domain: str) -> str | N
     """.strip()
 
 
+def _lowercase(table: pa.Table) -> pa.Table:
+    return table.rename_columns([name.lower() for name in table.column_names])
+
+
 def extract(
     source: OmopSource,
     spec: FeatureSpec,
@@ -79,8 +83,8 @@ def extract(
     Raises:
         ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent from the site.
     """
-    required = {"person_id", "index_date"}
-    missing = required - set(index.column_names)
+    index = _lowercase(index)
+    missing = {"person_id", "index_date"} - set(index.column_names)
     if missing:
         raise ValueError(f"index table is missing {sorted(missing)}")
 
