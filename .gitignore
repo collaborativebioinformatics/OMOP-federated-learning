@@ -114,3 +114,6 @@ cython_debug/
 # IDEs
 .vscode/
 .idea/
+
+# Large reproducible Synthea exports; keep compact cohort tables tracked.
+synthea_cohort/data/source/
