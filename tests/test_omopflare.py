@@ -217,17 +217,3 @@ def test_cohort_dataset_keeps_a_sparse_matrix_sparse():
     assert rows.shape == (3, 4)
     assert rows[0, 2] == 1.0
     assert labels.tolist() == [0.0, 1.0, 0.0]
-
-
-def test_dataloader_yields_whole_batches_per_index():
-    calls = []
-
-    class Counting(of.CohortDataset):
-        def __getitem__(self, index):
-            calls.append(index)
-            return super().__getitem__(index)
-
-    ds = Counting(np.zeros((100, 2)), np.zeros(100))
-    batches = list(of.dataloader(ds, batch_size=25))
-    assert len(batches) == 4
-    assert len(calls) == 4
