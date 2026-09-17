@@ -1,8 +1,8 @@
-# OMOP mapping agent
+# UKB-to-OMOP mapping agent
 
-This folder contains a configuration-driven, deterministic source-to-OMOP pilot. The agent reads a versioned JSON specification, profiles source events, proposes Athena vocabulary mappings for review, applies approved mappings, and replays the transformation for QC. It uses Python's standard library and does not call an LLM. The older `omop_skill` workflow is separate. The legacy diagnosis-only `agent.py` is retained for comparison; **use `general_agent.py` for new work**.
+`general_agent.py` is the supported UKB-to-OMOP pilot workflow. It reads a versioned source specification, proposes Athena vocabulary mappings, applies only reviewed mappings, and replays the transformation for QC. Mapping is deterministic and does not call an LLM. Core commands use the Python standard library; graphical QC additionally needs Matplotlib.
 
-## Current UKB workflow
+## Run the UKB workflow
 
 From the repository root, first generate a synthetic UKB input using the bundled [download and processing scripts](ukb/README.md), or set `UKB_TSV` to an existing tab-separated extract with `EID` and the fields declared in `specs/ukb_pilot_v1.json`. **No UKB data is committed to this folder.** The script sequence below downloads the first 10,000 records per official synthetic field-group file and creates an E11-focused subset locally. Set `ATHENA_DIR` to a local Athena vocabulary directory containing tab-separated `CONCEPT.csv`, `CONCEPT_RELATIONSHIP.csv`, and `VOCABULARY.csv` from one release, including ICD10. Athena vocabularies are not bundled. Python 3.9 or newer is required. Choose a fresh run directory each time.
 
@@ -82,7 +82,7 @@ The output is a **pilot subset** of OMOP 5.4 tables: person, observation_period,
 
 ## Boundaries
 
-The agent currently writes Condition, Measurement, Observation, and Procedure events. Other target domains fail explicitly during apply; add a domain writer before approving them. Output tables have pilot columns, not every column of a deployable OMOP CDM database. The technical observation period spans dated events and is not verified enrollment. Type concepts remain 0 unless declared in a source spec. The same Athena release should be used for inspection and application. `agent.py` remains a narrower legacy path, uses the bundled `ukb/map_ukb_to_omop.py` script, and its review format is not interchangeable with `general_agent.py`.
+The agent currently writes Condition, Measurement, Observation, and Procedure events. Other target domains fail explicitly during apply; add a domain writer before approving them. Output tables have pilot columns, not every column of a deployable OMOP CDM database. The technical observation period spans dated events and is not verified enrollment. Type concepts remain 0 unless declared in a source spec. The same Athena release should be used for inspection and application.
 
 ```bash
 python3 -m unittest discover -s ukb_omop_agent/tests
