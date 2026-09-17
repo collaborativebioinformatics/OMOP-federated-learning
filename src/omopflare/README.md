@@ -169,10 +169,19 @@ for person_ids, tensor in of.extract_sequence(site, spec, index, bins=10, aggreg
 
 `to_ehrdata` keeps the tensor sparse.
 
+## Training
+
+`CohortDataset` holds a site in memory, `StreamingCohort` re-runs the query per epoch, and `dataloader` wraps either.
+`dataloader` indexes a batch at a time rather than a row at a time, which on a 1M by 4 cohort is 2.88M rows/s against 0.61M for the torch default.
+`CohortDataset` keeps a sparse matrix in CSR and densifies per batch, so a 200k by 2000 matrix at 2% occupancy holds 0.097 GB rather than the 1.60 GB its dense form needs.
+
+Two sparse libraries, split by dimensionality: pydata/sparse for the 3D sequence tensors, which scipy cannot express, and scipy CSR for the 2D training matrices, whose batched row indexing plus densify runs at 3.35M rows/s against 0.006M for pydata GCXS compressed on axis 0.
+
 ## Scale
 
 Tables stay on disk as duckdb views over Parquet or CSV, with concept and date filters pushed into the scan.
-One site of 1M patients and 50M measurement rows extracts in under a second; duckdb's buffer pool will use the memory it is given, so set `memory_limit` if that matters.
+Building the design matrix for 1M patients over 50M measurement rows takes 0.8s, but that is the duckdb scan alone; a training epoch over the result is the slower half.
+duckdb's buffer pool will use the memory it is given, so set `memory_limit` if that matters.
 Parquet sorted by `person_id` is fastest.
 
 Table and column names are matched case-insensitively, so OHDSI exports with `PERSON.csv` and `PERSON_ID` load unchanged.
