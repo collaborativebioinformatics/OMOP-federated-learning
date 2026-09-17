@@ -1,0 +1,162 @@
+{
+  "site_a": {
+    "state": "Illinois",
+    "ages": "18-40",
+    "gender": "M+F",
+    "seed": 401,
+    "persons": 1235,
+    "measurements": 21489,
+    "diabetes_patients": 14,
+    "t2dm_prevalence": 0.0113,
+    "files": {
+      "patients.csv.gz": {
+        "compressed_bytes": 156444,
+        "rows_excluding_header": 1235,
+        "sha256": "b2984c5fb1b5cc12a611ac56e761b1f3b3658c9af70bfae8b7890ec437a2c434"
+      },
+      "encounters.csv.gz": {
+        "compressed_bytes": 679042,
+        "rows_excluding_header": 55295,
+        "sha256": "8100cc126b5b63e3d6e5b57aace68bfe6f906e9ba16a9b0008c4a19dabadb581"
+      },
+      "observations.csv.gz": {
+        "compressed_bytes": 479675,
+        "rows_excluding_header": 21489,
+        "sha256": "4b196e5a6f66a1938fe9e36b5c15642bf1c485fdb7b5f0c9f04eecd9ac4652c7"
+      },
+      "conditions.csv.gz": {
+        "compressed_bytes": 870,
+        "rows_excluding_header": 14,
+        "sha256": "e144a40081e3c39331779709cc9f615d068382de5fcd28687d9d39169d22ecf1"
+      }
+    }
+  },
+  "site_b": {
+    "state": "Washington",
+    "ages": "35-65",
+    "gender": "M+F",
+    "seed": 402,
+    "persons": 1000,
+    "measurements": 27100,
+    "diabetes_patients": 63,
+    "t2dm_prevalence": 0.063,
+    "files": {
+      "patients.csv.gz": {
+        "compressed_bytes": 127998,
+        "rows_excluding_header": 1000,
+        "sha256": "6ef3cbfa95183797a600ee8bc31da3cc7404296cfc383198e90bc38d0affef5e"
+      },
+      "encounters.csv.gz": {
+        "compressed_bytes": 797086,
+        "rows_excluding_header": 67402,
+        "sha256": "9c27870afdccc13bd87aa14828651895eb1590c5c194d29ddb092018f5b57a3e"
+      },
+      "observations.csv.gz": {
+        "compressed_bytes": 557021,
+        "rows_excluding_header": 27100,
+        "sha256": "358e96b800e1d0c90cbacc8cae0ae0685ac7ace1ea7877d2511c5db895b15668"
+      },
+      "conditions.csv.gz": {
+        "compressed_bytes": 3343,
+        "rows_excluding_header": 63,
+        "sha256": "6e3dc010709f55c9fcf56508565edf27d7c15edd137d7bb9595a8b21c9f42b0a"
+      }
+    }
+  },
+  "site_c": {
+    "state": "Arizona",
+    "ages": "65-95",
+    "gender": "M+F",
+    "seed": 403,
+    "persons": 1128,
+    "measurements": 65928,
+    "diabetes_patients": 196,
+    "t2dm_prevalence": 0.1738,
+    "files": {
+      "patients.csv.gz": {
+        "compressed_bytes": 141782,
+        "rows_excluding_header": 1128,
+        "sha256": "1c25ad2d5bce68d986452120fae322be1e7d6e16ca549124d05c6ad5ed4f6539"
+      },
+      "encounters.csv.gz": {
+        "compressed_bytes": 2017256,
+        "rows_excluding_header": 164260,
+        "sha256": "34da48b285c2edf2cdc71ccf8a29d935f3ac66066a3c85606b534d29027d8e38"
+      },
+      "observations.csv.gz": {
+        "compressed_bytes": 1371710,
+        "rows_excluding_header": 65928,
+        "sha256": "278ed5bad923895917d3c182d109c68917b5f6387a64aa5179ac700d218cea70"
+      },
+      "conditions.csv.gz": {
+        "compressed_bytes": 10015,
+        "rows_excluding_header": 196,
+        "sha256": "01210cb143ccf82d4da583aa8081651637e4bca145cb0871d5586a3ccdefc29a"
+      }
+    }
+  },
+  "site_d": {
+    "state": "Colorado",
+    "ages": "40-80",
+    "gender": "M+F",
+    "seed": 404,
+    "persons": 507,
+    "measurements": 18412,
+    "diabetes_patients": 65,
+    "t2dm_prevalence": 0.1282,
+    "files": {
+      "patients.csv.gz": {
+        "compressed_bytes": 64635,
+        "rows_excluding_header": 507,
+        "sha256": "10c385f08035daa03609804236475f6c5fc9d3fbd64eba63a42fab5701f56569"
+      },
+      "encounters.csv.gz": {
+        "compressed_bytes": 611105,
+        "rows_excluding_header": 51201,
+        "sha256": "1f1800eabf7066f7a0d86bec77a1b52aed3f4afd65b5fe593653ad517de5ed04"
+      },
+      "observations.csv.gz": {
+        "compressed_bytes": 378665,
+        "rows_excluding_header": 18412,
+        "sha256": "e942ac40350925a695d3d4b7d49f8d1a1535aa98146b017e802775242ba395c8"
+      },
+      "conditions.csv.gz": {
+        "compressed_bytes": 3444,
+        "rows_excluding_header": 65,
+        "sha256": "d26759e9e2e78b6061d283e400030bb9d3fe50f95a388c7cd1ed5c6c59cb6330"
+      }
+    }
+  },
+  "site_e": {
+    "state": "Oregon",
+    "ages": "25-60",
+    "gender": "F",
+    "seed": 405,
+    "persons": 744,
+    "measurements": 16573,
+    "diabetes_patients": 52,
+    "t2dm_prevalence": 0.0699,
+    "files": {
+      "patients.csv.gz": {
+        "compressed_bytes": 94246,
+        "rows_excluding_header": 744,
+        "sha256": "41499df8faf8ed8749f66b7760c78a780027d8459da7cd530f931d14a9c80f37"
+      },
+      "encounters.csv.gz": {
+        "compressed_bytes": 586235,
+        "rows_excluding_header": 48395,
+        "sha256": "c73a545437d52cd87e10a92381e6dea16806340adc0a1d6ce8b886632ee8b7b8"
+      },
+      "observations.csv.gz": {
+        "compressed_bytes": 355683,
+        "rows_excluding_header": 16573,
+        "sha256": "8a2a5334764024e3b667b930006300e90ca701ba68238a3472bf241e3cc6b016"
+      },
+      "conditions.csv.gz": {
+        "compressed_bytes": 2787,
+        "rows_excluding_header": 52,
+        "sha256": "80483af8bfcb23a79ddf48f1da4065b1d65d8690564ece79f7d1a60cb2b97f7f"
+      }
+    }
+  }
+}
