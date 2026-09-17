@@ -5,8 +5,8 @@
 3. check the format of the date
 4. check for fraction of successful OMOP conversions
 
-Can do these sanity checks with tools like:
-Achilles
-R package: OHDSI/Achilles
-Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.)
+Can do these sanity checks with tools like: <br>
+Achilles <br>
+R package: OHDSI/Achilles <br>
+Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.) <br>
 Powers visual exploration in ATLAS
