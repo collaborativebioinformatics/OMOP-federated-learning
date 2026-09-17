@@ -119,3 +119,6 @@ cython_debug/
 
 # Large reproducible Synthea exports; keep compact cohort tables tracked.
 synthea_cohort/data/source/
+synthea_datasets/raw/
+synthea_datasets/*.jar
+synthea_datasets/.dbt-synthea/
