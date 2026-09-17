@@ -14,7 +14,6 @@ dependencies = [
     "pyarrow>=17",
     "numpy>=2",
     "torch>=2.4",
-    "scipy>=1.14",
     "sparse>=0.15",
     "nvflare>=2.9",
 ]
@@ -27,6 +26,8 @@ packages = ["src/omopflare"]
 
 [tool.ruff]
 line-length = 120
+# Verbatim upstream copies; keep them byte-identical to NVFlare.
+extend-exclude = ["examples/hello-numpy", "examples/hello-pt"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "RUF"]

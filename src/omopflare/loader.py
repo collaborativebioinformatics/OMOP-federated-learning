@@ -4,8 +4,8 @@ from collections.abc import Iterator, Mapping, Sequence
 
 import numpy as np
 import pyarrow as pa
+import sparse
 import torch
-from scipy.sparse import csr_array
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 
 from .features import Layout, extract, to_matrix
@@ -14,8 +14,8 @@ from .spec import FeatureSpec
 from .stats import SiteStats, standardize
 
 
-def _to_tensor(matrix: np.ndarray | csr_array) -> torch.Tensor:
-    dense = matrix.toarray() if isinstance(matrix, csr_array) else matrix
+def _to_tensor(matrix: np.ndarray | sparse.COO) -> torch.Tensor:
+    dense = matrix.todense() if isinstance(matrix, sparse.SparseArray) else matrix
     return torch.from_numpy(np.ascontiguousarray(dense, dtype=np.float32))
 
 
@@ -30,7 +30,7 @@ class CohortDataset(Dataset):
 
     def __init__(
         self,
-        features: np.ndarray | csr_array,
+        features: np.ndarray | sparse.COO,
         labels: Sequence[float] | np.ndarray,
         person_ids: np.ndarray | None = None,
     ) -> None:
@@ -49,9 +49,6 @@ class CohortDataset(Dataset):
 
 class StreamingCohort(IterableDataset):
     """A cohort read from disk one batch at a time, for sites that do not fit in memory.
-
-    Each pass re-runs the extraction query, so the data is never held in Python beyond the current batch.
-    Shuffling happens within a buffer rather than globally, because a global shuffle would need the whole cohort.
 
     Args:
         source: The site to read from.
@@ -90,7 +87,7 @@ class StreamingCohort(IterableDataset):
         generator = np.random.default_rng()
         for batch in extract(self.source, self.spec, self.index, batch_size=self.batch_size):
             person_ids, matrix = to_matrix(batch, self.spec, layout=self.layout)
-            if self.scaler is not None and not isinstance(matrix, csr_array):
+            if self.scaler is not None and not isinstance(matrix, sparse.SparseArray):
                 matrix = standardize(matrix, self.scaler)
             features = _to_tensor(matrix)
             labels = torch.as_tensor([self._labels[int(p)] for p in person_ids], dtype=torch.float32)

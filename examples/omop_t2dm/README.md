@@ -1,47 +1,47 @@
-# Federated T2DM risk across five OMOP sites
+# Federated T2DM risk over OMOP sites
 
-Runs `omopflare` end to end on [`synthea_cohorts/cohort_2`](../../synthea_cohorts/cohort_2), whose five sites are separate Synthea populations.
+Runs `omopflare` end to end on any cohort under [`synthea_cohorts`](../../synthea_cohorts).
 
 ```bash
-python run.py
+python run.py --sites ../../synthea_cohorts/cohort_2/data/omop
+python run.py --sites ../../synthea_cohorts/cohort_3/data/omop --rounds 20
 ```
 
-That validates every site against the spec, prints what each may disclose, combines a federated scaler, then trains a `RiskMLP` with NVFlare FedAvg over ten rounds.
+Each run counts what the sites can supply, agrees a spec, validates against it, combines a federated scaler, then trains a `RiskMLP` with NVFlare FedAvg.
 
-## What it does
+`cohort.py` holds the candidate features and the cohort definition: the landmark is each patient's fiftieth birthday and the label is a later type 2 diabetes diagnosis.
+`client.py` is what NVFlare launches per site.
 
-`cohort.py` holds the spec and the cohort definition.
-The landmark is each patient's fiftieth birthday and the label is a type 2 diabetes diagnosis after it, so the landmark does not depend on the outcome.
-Features are the last BMI and systolic blood pressure in the ten years before the landmark, each pinned to a unit and a plausible range.
+## The spec is negotiated, not hand-written
 
-`client.py` is what NVFlare launches per site. It builds that site's cohort, standardises on its own training rows, and runs the receive, evaluate, train, send loop.
-`run.py` drives the simulation.
+Every site reports how many patients it has per candidate, suppressed below the minimum cell count, and `propose_spec` keeps what enough sites can supply:
+
+| cohort | sites | agreed features |
+| --- | --- | --- |
+| cohort_1 | 3 | bmi, sbp, glucose, hba1c |
+| cohort_2 | 5 | bmi, sbp |
+| cohort_3 | 5 | bmi, sbp, glucose, hba1c |
+
+cohort_2 has no glucose or HbA1c, so those drop out instead of becoming dead all-missing columns.
+Pass `--min-sites` to keep a feature that only some sites carry.
 
 ## Results
 
-Every site's validation AUROC climbs across rounds, which is the curve FedAvg should produce:
+On cohort_3, AUROC per site is about 0.74 and does not move across rounds.
+That is convergence rather than a broken loop: locally the model goes from 0.48 to 0.74 within the first epoch and then plateaus.
 
-| site | round 1 | round 9 |
-| --- | --- | --- |
-| site_b | 0.44 | 0.51 |
-| site_c | 0.50 | 0.56 |
-| site_d | 0.32 | 0.71 |
-| site_e | 0.15 | 0.74 |
+The four biomarkers are written in bundles by Synthea, so a patient has all of them or none, and their variance is identical.
+The model therefore has roughly two degrees of freedom, and most of the signal is whether a patient was measured at all.
+Read this as working plumbing rather than a clinical result.
 
-The absolute numbers are poor, and that is the data rather than the plumbing.
-Two features cannot predict diabetes, and Synthea does not simulate a strong relationship between them and the outcome.
-Treat this as a demonstration that the pipeline runs, not as a result.
-
-`site_a` is absent from the table because its prevalence is withheld: it is the 18 to 40 cohort, so almost nobody reaches the age-50 landmark and only 8 patients have a BMI in the window.
-That is the minimum cell count doing its job.
+On cohort_2 the numbers are worse still, because only BMI and systolic pressure survive negotiation and neither predicts diabetes.
+`site_a` there has its prevalence withheld by the minimum cell count: it is the 18 to 40 cohort, so almost nobody reaches the age-50 landmark.
 
 ## Sequence tensors
 
-The same spec extracts a patient by feature by time-bin tensor:
-
 ```python
-for person_ids, tensor = of.extract_sequence(source, SPEC, index, bins=10, aggregate="mean"):
-    edata = of.to_ehrdata(person_ids, tensor, SPEC)
+for person_ids, tensor in of.extract_sequence(source, spec, index, bins=10, aggregate="mean"):
+    edata = of.to_ehrdata(person_ids, tensor, spec)
 ```
 
-On `site_c` that is 1128 by 2 by 10 at about 5% density, which is why it is sparse rather than dense.
+On `cohort_2/site_c` that is 1128 by 2 by 10 at about 5% density.

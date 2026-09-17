@@ -1,6 +1,6 @@
 from .features import extract, to_matrix
-from .federate import fedavg_recipe, federated_scaler, global_model_path, predict, run_client, simulate
 from .loader import CohortDataset, StreamingCohort, dataloader, site_statistics
+from .propose import concept_counts, propose_spec
 from .sequence import extract_sequence, to_ehrdata
 from .source import OmopSource
 from .spec import Feature, FeatureSpec, spec_from_features
@@ -17,17 +17,13 @@ __all__ = [
     "SiteStats",
     "StreamingCohort",
     "combine",
+    "concept_counts",
     "dataloader",
     "errors",
     "extract",
     "extract_sequence",
-    "fedavg_recipe",
-    "federated_scaler",
-    "global_model_path",
-    "predict",
     "prevalence",
-    "run_client",
-    "simulate",
+    "propose_spec",
     "site_statistics",
     "spec_from_features",
     "standardize",

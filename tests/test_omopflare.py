@@ -165,7 +165,7 @@ def test_auto_layout_is_sparse_for_presence_specs(site, presence_spec, index):
     batch = next(of.extract(site, presence_spec, index))
     _, matrix = of.to_matrix(batch, presence_spec, layout="auto")
     assert matrix.shape == (3, 1)
-    assert matrix.toarray()[:, 0].tolist() == [1.0, 0.0, 0.0]
+    assert matrix.todense()[:, 0].tolist() == [1.0, 0.0, 0.0]
 
 
 def test_unknown_layout_rejected(site, spec, index):
@@ -210,3 +210,32 @@ def test_to_ehrdata_carries_the_spec(site, spec, index):
     assert edata.shape == (3, 2, 5)
     assert list(edata.var.index) == ["bmi", "t2dm"]
     assert edata.tem["days_before_index"].tolist()[-1] == 0.0
+
+
+def test_concept_counts_suppress_small_cells(site, spec):
+    counts = of.concept_counts(site, spec.features, min_cell_count=5)
+    assert counts["bmi"] == 0
+    assert of.concept_counts(site, spec.features, min_cell_count=1)["bmi"] == 1
+
+
+def test_propose_spec_keeps_features_every_site_has(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 30, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365)
+    assert [f.name for f in agreed.features] == ["bmi", "t2dm"]
+
+
+def test_propose_spec_drops_a_feature_one_site_lacks(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 0, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365)
+    assert [f.name for f in agreed.features] == ["t2dm"]
+
+
+def test_propose_spec_min_sites_relaxes_the_intersection(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 0, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365, min_sites=1)
+    assert [f.name for f in agreed.features] == ["bmi", "t2dm"]
+
+
+def test_propose_spec_raises_when_nothing_qualifies(spec):
+    with pytest.raises(ValueError, match="no candidate reached"):
+        of.propose_spec([{"bmi": 0, "t2dm": 0}], spec.features, vocabulary_version="v5.0", lookback_days=365)

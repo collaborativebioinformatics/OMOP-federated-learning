@@ -75,8 +75,7 @@ def extract_sequence(
 ) -> Iterator[tuple[np.ndarray, sparse.COO]]:
     """Yield sparse patient by feature by time-bin tensors.
 
-    The lookback window is split into ``bins`` equal intervals, with bin 0 oldest and bin ``bins - 1`` ending at the
-    landmark. Unstored entries read as NaN rather than zero, so an unmeasured bin stays distinct from a measured zero.
+    Bin 0 is oldest and bin ``bins - 1`` ends at the landmark. Unstored entries read as NaN.
 
     Args:
         source: The site to read from.

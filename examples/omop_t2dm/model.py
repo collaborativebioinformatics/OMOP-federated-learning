@@ -10,9 +10,6 @@ from torch import nn
 class RiskMLP(nn.Module):
     """A small classifier over an omopflare design matrix.
 
-    NVFlare rebuilds this on the server from a class path, reading ``__dict__`` for the ``__init__`` parameters,
-    so every argument is assigned to an attribute of the same name.
-
     Args:
         n_features: Design matrix width, from ``spec.width``.
         hidden: Hidden layer sizes.

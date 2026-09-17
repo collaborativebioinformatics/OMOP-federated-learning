@@ -127,3 +127,6 @@ synthea_cohorts/*/*.jar
 # Example run artifacts
 examples/*/workspace/
 examples/omop_t2dm/spec.json
+
+synthea_cohorts/cohort_1/data/omop/
+synthea_cohorts/cohort_3/data/omop/

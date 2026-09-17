@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import nvflare.client as flare
 import torch
 from model import RiskMLP
 from sklearn.metrics import roc_auc_score
@@ -88,7 +89,9 @@ def auroc(model: nn.Module, loader) -> float:
     Returns:
         The AUROC, or NaN if only one class is present.
     """
-    scores = of.predict(model, loader)
+    model.eval()
+    with torch.no_grad():
+        scores = np.concatenate([torch.sigmoid(model(features)).numpy() for features, _ in loader])
     labels = np.concatenate([labels.numpy() for _, labels in loader])
     if len(np.unique(labels)) < 2:
         return float("nan")
@@ -110,11 +113,21 @@ def main() -> None:
     test_loader = of.dataloader(test_set, batch_size=256)
     model = RiskMLP(spec.width)
 
-    of.run_client(
-        model,
-        train=lambda m: train_epochs(m, train_loader, args.epochs, args.lr),
-        evaluate=lambda m: auroc(m, test_loader),
-    )
+    flare.init()
+    while flare.is_running():
+        received = flare.receive()
+        if received is None:
+            break
+        model.load_state_dict(received.params)
+        score = auroc(model, test_loader)
+        steps = train_epochs(model, train_loader, args.epochs, args.lr)
+        flare.send(
+            flare.FLModel(
+                params={key: value.cpu() for key, value in model.state_dict().items()},
+                metrics={"auroc": score},
+                meta={"NUM_STEPS_CURRENT_ROUND": steps},
+            )
+        )
 
 
 if __name__ == "__main__":

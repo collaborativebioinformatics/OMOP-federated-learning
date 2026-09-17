@@ -4,7 +4,6 @@ import argparse
 from pathlib import Path
 
 import nvflare.client as flare
-import torch
 
 from data import load_shard, make_loader
 from model import CoxPHModel

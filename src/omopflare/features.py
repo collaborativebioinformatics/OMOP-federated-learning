@@ -5,7 +5,7 @@ from typing import Literal
 
 import numpy as np
 import pyarrow as pa
-from scipy.sparse import csr_array
+import sparse
 
 from .source import OmopSource
 from .spec import CONCEPT_COLUMN, DATE_COLUMN, VALUE_COLUMN, Feature, FeatureSpec
@@ -120,7 +120,7 @@ def to_matrix(
     spec: FeatureSpec,
     *,
     layout: Layout = "dense",
-) -> tuple[np.ndarray, np.ndarray | csr_array]:
+) -> tuple[np.ndarray, np.ndarray | sparse.COO]:
     """Turn one extraction batch into person IDs and a design matrix.
 
     ``dense`` keeps missing values as NaN. ``sparse`` returns CSR. ``auto`` uses sparse only for presence-only specs.
@@ -157,7 +157,7 @@ def _to_dense(batch: pa.RecordBatch, spec: FeatureSpec) -> tuple[np.ndarray, np.
     return person_ids, matrix
 
 
-def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool) -> tuple[np.ndarray, csr_array]:
+def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool) -> tuple[np.ndarray, sparse.COO]:
     if not presence_only:
         numeric = [f.name for f in spec.features if f.is_numeric]
         raise ValueError(f"a sparse layout needs presence features only, got numeric {numeric}")
@@ -168,7 +168,12 @@ def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool)
         present = np.flatnonzero(np.asarray(batch.column(f"f{position}").is_valid()))
         rows.append(present)
         columns.append(np.full(present.size, position))
-    row = np.concatenate(rows) if rows else np.empty(0, dtype=int)
-    column = np.concatenate(columns) if columns else np.empty(0, dtype=int)
+    row = np.concatenate(rows) if rows else np.empty(0, dtype=np.int64)
+    column = np.concatenate(columns) if columns else np.empty(0, dtype=np.int64)
     data = np.ones(row.size, dtype=np.float64)
-    return person_ids, csr_array((data, (row, column)), shape=(len(person_ids), len(spec.features)))
+    return person_ids, sparse.COO(
+        coords=np.vstack([row, column]),
+        data=data,
+        shape=(len(person_ids), len(spec.features)),
+        fill_value=0.0,
+    )

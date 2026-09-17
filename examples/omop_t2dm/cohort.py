@@ -7,32 +7,40 @@ import pyarrow as pa
 import omopflare as of
 
 HERE = Path(__file__).parent
-SITES_ROOT = HERE.parents[1] / "synthea_cohorts" / "cohort_2" / "data" / "omop"
+COHORTS = HERE.parents[1] / "synthea_cohorts"
 
-BMI, SBP, T2DM = 3038553, 3004249, 201826
-KG_M2, MMHG = 9531, 8876
+T2DM = 201826
 
-SPEC = of.FeatureSpec(
-    features=(
-        of.Feature("bmi", BMI, "measurement", unit_concept_id=KG_M2, plausible_range=(10.0, 80.0)),
-        of.Feature("sbp", SBP, "measurement", unit_concept_id=MMHG, plausible_range=(50.0, 250.0)),
-    ),
-    vocabulary_version="synthea-contract",
-    lookback_days=3650,
-    missing_indicators=True,
-    metadata={"outcome": "type 2 diabetes", "landmark": "age 50"},
+CANDIDATES = (
+    of.Feature("bmi", 3038553, "measurement", unit_concept_id=9531, plausible_range=(10.0, 80.0)),
+    of.Feature("sbp", 3004249, "measurement", unit_concept_id=8876, plausible_range=(50.0, 250.0)),
+    of.Feature("glucose", 3000483, "measurement", unit_concept_id=8840, plausible_range=(20.0, 800.0)),
+    of.Feature("hba1c", 3004410, "measurement", unit_concept_id=8554, plausible_range=(2.0, 20.0)),
 )
+VOCABULARY_VERSION = "synthea-contract"
+LOOKBACK_DAYS = 3650
 
 
-def sites() -> tuple[str, ...]:
-    return tuple(sorted(p.name for p in SITES_ROOT.iterdir() if p.is_dir()))
+def site_paths(root: Path) -> tuple[Path, ...]:
+    """List the site directories under a cohort's OMOP folder.
+
+    Args:
+        root: Directory holding one folder per site.
+
+    Returns:
+        The site directories, sorted by name.
+
+    Raises:
+        FileNotFoundError: If the directory holds no sites.
+    """
+    paths = tuple(sorted(p for p in root.iterdir() if p.is_dir()))
+    if not paths:
+        raise FileNotFoundError(f"no site directories under {root}")
+    return paths
 
 
 def index_table(source: of.OmopSource) -> pa.Table:
     """Build the landmark and label for one site.
-
-    The landmark is each patient's fiftieth birthday, and the label is a later type 2 diabetes diagnosis.
-    Using a fixed age rather than the diagnosis date keeps the landmark independent of the outcome.
 
     Args:
         source: The site to read from.
@@ -40,16 +48,17 @@ def index_table(source: of.OmopSource) -> pa.Table:
     Returns:
         A table of ``person_id``, ``index_date`` and ``label``.
     """
+    landmark = "cast(concat(cast(p.year_of_birth + 50 as varchar), '-01-01') as date)"
     query = f"""
     select
         p.person_id,
-        cast(concat(cast(p.year_of_birth + 50 as varchar), '-01-01') as date) as index_date,
+        {landmark} as index_date,
         cast(count(c.person_id) > 0 as double) as label
     from person p
     left join condition_occurrence c
         on c.person_id = p.person_id
        and c.condition_concept_id = {T2DM}
-       and c.condition_start_date >= cast(concat(cast(p.year_of_birth + 50 as varchar), '-01-01') as date)
+       and c.condition_start_date >= {landmark}
     group by p.person_id, p.year_of_birth
     """
     return source.sql(query).arrow().read_all()
