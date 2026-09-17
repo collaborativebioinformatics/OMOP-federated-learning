@@ -1,5 +1,6 @@
-# Machine-readable version of contract/data_contract.md (version 2026-09-17), sections 4 and 5.
-# Change both files together.
+# Machine-readable version of contract/data_contract.md, revision 1 (2026-09-17), sections 4 and 5.
+# Revision 2 (HbA1c outcome, race and ethnicity concepts, observation period without encounters,
+# plausibility ranges) is not reflected here yet. Change both files together.
 # gender_concept_id and unit_concept_id also allow 0 for unmapped values, as synthea_datasets/build.py writes them.
 version: "2026-09-17"
 tables:

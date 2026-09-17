@@ -2,6 +2,10 @@
 
 State on 2026-09-17, branch `omop-skill-mvp`.
 
+Checked against revision 1 of `contract/data_contract.md`: observation period from encounters, BMI and systolic blood pressure.
+Revision 2 changed the contract after these tests: HbA1c as the outcome, race and ethnicity concepts, observation period from observation and condition dates, plausibility ranges.
+The skill does not support revision 2 yet.
+
 Raw Synthea data in, the four contract tables out, checked against the contract.
 On all five sites of `cohort_2` the output is identical to the tables the team wrote by hand, and `omopflare` from subproject 2 reads it without errors.
 
