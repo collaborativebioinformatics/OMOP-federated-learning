@@ -1,3 +1,8 @@
+# Acknowledgement:
+# Anthropic. (2026). Claude (Version 3.5 Sonnet). 
+# https://anthropic.com
+# Used for: Code optimization and error handling.
+
 #!/usr/bin/env python3
 """
 omop_qc.py
