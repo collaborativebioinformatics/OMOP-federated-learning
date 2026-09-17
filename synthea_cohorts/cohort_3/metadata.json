@@ -1,0 +1,12 @@
+{
+  "description": "Normalized demo cohort resampled from cohort_1; not a fresh Synthea population",
+  "seed": 20260918,
+  "template": "cohort_1/data/cohort",
+  "rows": {
+    "patients": 50000,
+    "diagnoses": 50000,
+    "biomarkers": 610681
+  },
+  "biomarker_jitter_standard_deviation_fraction": 0.03,
+  "raw_source_retained": false
+}
