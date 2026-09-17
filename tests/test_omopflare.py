@@ -204,3 +204,30 @@ def test_uppercase_columns_extract(ohdsi_site, spec):
         rows.update({int(p): r for p, r in zip(ids, values, strict=True)})
     assert rows[1][0] == 25.0
     assert np.isnan(rows[2][0])
+
+
+def test_cohort_dataset_keeps_a_sparse_matrix_sparse():
+    import sparse as sp
+    from scipy.sparse import csr_matrix
+
+    coo = sp.COO(coords=np.array([[0, 1], [2, 0]]), data=np.ones(2), shape=(3, 4), fill_value=0.0)
+    ds = of.CohortDataset(coo, [0.0, 1.0, 0.0])
+    assert isinstance(ds.features, csr_matrix)
+    rows, labels = ds[[0, 1, 2]]
+    assert rows.shape == (3, 4)
+    assert rows[0, 2] == 1.0
+    assert labels.tolist() == [0.0, 1.0, 0.0]
+
+
+def test_dataloader_yields_whole_batches_per_index():
+    calls = []
+
+    class Counting(of.CohortDataset):
+        def __getitem__(self, index):
+            calls.append(index)
+            return super().__getitem__(index)
+
+    ds = Counting(np.zeros((100, 2)), np.zeros(100))
+    batches = list(of.dataloader(ds, batch_size=25))
+    assert len(batches) == 4
+    assert len(calls) == 4

@@ -5,7 +5,8 @@ from collections.abc import Iterator, Mapping, Sequence
 import numpy as np
 import sparse
 import torch
-from torch.utils.data import DataLoader, Dataset, IterableDataset
+from scipy.sparse import csr_matrix
+from torch.utils.data import BatchSampler, DataLoader, Dataset, IterableDataset, RandomSampler, SequentialSampler
 
 from .features import Index, Layout, as_table, extract, to_matrix
 from .source import OmopSource
@@ -13,37 +14,53 @@ from .spec import FeatureSpec
 from .stats import SiteStats, standardize
 
 
-def _to_tensor(matrix: np.ndarray | sparse.COO) -> torch.Tensor:
-    dense = matrix.todense() if isinstance(matrix, sparse.SparseArray) else matrix
-    return torch.from_numpy(np.ascontiguousarray(dense, dtype=np.float32))
+def _to_tensor(matrix: np.ndarray) -> torch.Tensor:
+    return torch.from_numpy(np.ascontiguousarray(matrix, dtype=np.float32))
+
+
+def _to_csr(matrix: sparse.SparseArray) -> csr_matrix:
+    return csr_matrix(matrix.to_scipy_sparse(), dtype=np.float32)
 
 
 class CohortDataset(Dataset):
     """An in-memory cohort, for sites small enough to hold one.
 
+    A sparse design matrix is kept sparse and densified one batch at a time, so a wide bag-of-codes spec costs
+    its stored values rather than rows times features.
+    Indexing takes a batch of positions, which is what :func:`dataloader` supplies.
+
     Args:
-        features: The design matrix.
+        features: The design matrix, dense or sparse.
         labels: One label per row.
         person_ids: Optional person IDs, kept so predictions can be joined back.
+
+    Raises:
+        ValueError: If the row counts of ``features`` and ``labels`` disagree.
     """
 
     def __init__(
         self,
-        features: np.ndarray | sparse.COO,
+        features: np.ndarray | sparse.SparseArray,
         labels: Sequence[float] | np.ndarray,
         person_ids: np.ndarray | None = None,
     ) -> None:
-        self.features = _to_tensor(features)
+        self.sparse = isinstance(features, sparse.SparseArray)
+        self.features = _to_csr(features) if self.sparse else _to_tensor(features)
         self.labels = torch.as_tensor(np.asarray(labels), dtype=torch.float32)
         self.person_ids = person_ids
-        if len(self.features) != len(self.labels):
-            raise ValueError(f"{len(self.features)} rows but {len(self.labels)} labels")
+        if self.features.shape[0] != len(self.labels):
+            raise ValueError(f"{self.features.shape[0]} rows but {len(self.labels)} labels")
 
     def __len__(self) -> int:
         return len(self.labels)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.features[index], self.labels[index]
+    def __getitem__(self, index: int | Sequence[int]) -> tuple[torch.Tensor, torch.Tensor]:
+        positions = torch.as_tensor(index)
+        if self.sparse:
+            rows = torch.from_numpy(self.features[positions.numpy()].toarray())
+        else:
+            rows = self.features[positions]
+        return rows, self.labels[positions]
 
 
 class StreamingCohort(IterableDataset):
@@ -137,7 +154,7 @@ def dataloader(
     num_workers: int = 0,
     **kwargs: Mapping[str, object],
 ) -> DataLoader:
-    """Wrap a cohort in a ``DataLoader``, ignoring ``shuffle`` for streaming datasets.
+    """Wrap a cohort in a ``DataLoader`` that indexes a batch at a time rather than a row at a time.
 
     Args:
         dataset: A :class:`CohortDataset` or :class:`StreamingCohort`.
@@ -149,11 +166,8 @@ def dataloader(
     Returns:
         A ``DataLoader`` over the cohort.
     """
-    streaming = isinstance(dataset, IterableDataset)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False if streaming else shuffle,
-        num_workers=num_workers,
-        **kwargs,
-    )
+    if isinstance(dataset, IterableDataset):
+        return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, **kwargs)
+    inner = RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+    sampler = BatchSampler(inner, batch_size=batch_size, drop_last=False)
+    return DataLoader(dataset, sampler=sampler, batch_size=None, num_workers=num_workers, **kwargs)
