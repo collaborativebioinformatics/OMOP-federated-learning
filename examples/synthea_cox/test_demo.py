@@ -11,7 +11,7 @@ from model import CoxPHModel
 from training import concordance_index, evaluate, negative_partial_log_likelihood, train_epochs
 
 HERE = Path(__file__).resolve().parent
-COHORT = HERE.parent / "synthea_cohorts" / "cohort_1" / "data" / "cohort"
+COHORT = HERE.parents[1] / "synthea_cohorts" / "cohort_1" / "data" / "cohort"
 
 
 class DemoTest(unittest.TestCase):
