@@ -1,0 +1,207 @@
+---
+title: "Synthea Federated Cox PH Results"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+params:
+  result: "latest"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+required <- c("jsonlite", "ggplot2")
+missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing)) {
+  stop(
+    "Install the required R packages first: install.packages(c(",
+    paste(sprintf("'%s'", missing), collapse = ", "), "))"
+  )
+}
+has_plotly <- requireNamespace("plotly", quietly = TRUE)
+has_dt <- requireNamespace("DT", quietly = TRUE)
+
+rmd_path <- knitr::current_input(dir = TRUE)
+if (nzchar(rmd_path)) {
+  demo_dir <- dirname(normalizePath(rmd_path))
+} else if (basename(getwd()) == "synthea_nvflare") {
+  demo_dir <- normalizePath(getwd())
+} else {
+  demo_dir <- normalizePath(file.path(getwd(), "synthea_nvflare"))
+}
+results_dir <- file.path(demo_dir, "results")
+if (identical(params$result, "latest")) {
+  latest <- jsonlite::fromJSON(file.path(results_dir, "latest_run.json"))
+  result_dir <- file.path(demo_dir, latest$result_dir)
+} else {
+  result_dir <- file.path(results_dir, params$result)
+}
+manifest <- jsonlite::fromJSON(file.path(result_dir, "run_manifest.json"))
+```
+
+This report uses the best federated model and held-out test patients from each client.
+The default data contain **simulated five-year mortality outcomes for demonstration**, so
+the estimates must not be interpreted clinically.
+
+## Run summary
+
+```{r run-summary}
+knitr::kable(data.frame(
+  field = c("Run", "Cohorts", "Outcome", "Horizon (days)", "Held-out predictions", "Rounds"),
+  value = c(
+    manifest$run_name,
+    paste(manifest$cohorts, collapse = ", "),
+    manifest$outcome,
+    manifest$horizon_days,
+    manifest$patients_in_test_predictions,
+    manifest$federated_rounds_reported
+  )
+))
+```
+
+```{r load-data, include=FALSE}
+predictions <- read.csv(file.path(result_dir, "predictions.csv"), check.names = FALSE)
+coefficients <- read.csv(file.path(result_dir, "coefficients.csv"), check.names = FALSE)
+metrics <- read.csv(file.path(result_dir, "round_metrics.csv"), check.names = FALSE)
+
+predictions$outcome <- ifelse(
+  predictions$event == 1,
+  "Event before horizon",
+  "Censored/alive at horizon"
+)
+predictions$patient_short <- substr(predictions$patient_id, 1, 8)
+predictions <- predictions[order(predictions$predicted_survival), ]
+predictions$prediction_rank <- seq_len(nrow(predictions))
+coefficients$direction <- ifelse(
+  coefficients$coefficient > 0,
+  "Higher hazard",
+  "Lower hazard"
+)
+```
+
+## Federated validation by round
+
+```{r metrics-plot}
+shown_metrics <- metrics[metrics$metric %in% c("c_index", "brier_horizon"), ]
+shown_metrics$metric <- factor(
+  shown_metrics$metric,
+  levels = c("c_index", "brier_horizon"),
+  labels = c("C-index", "Brier score")
+)
+
+metric_plot <- ggplot2::ggplot(
+  shown_metrics,
+  ggplot2::aes(round, value, color = metric, text = paste0(
+    "Round: ", round, "<br>Metric: ", metric, "<br>Value: ", round(value, 3)
+  ))
+) +
+  ggplot2::geom_line(linewidth = 0.8) +
+  ggplot2::geom_point(size = 1.8) +
+  ggplot2::geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
+  ggplot2::coord_cartesian(ylim = c(0, 1)) +
+  ggplot2::labs(x = "Federated round", y = "Metric", color = NULL) +
+  ggplot2::theme_minimal()
+
+if (has_plotly) {
+  plotly::ggplotly(metric_plot, tooltip = "text")
+} else {
+  metric_plot
+}
+```
+
+## Held-out survival predictions
+
+```{r predictions-plot}
+horizon_years <- unique(predictions$horizon_days) / 365
+prediction_plot <- ggplot2::ggplot(
+  predictions,
+  ggplot2::aes(
+    prediction_rank,
+    predicted_survival,
+    color = outcome,
+    shape = client,
+    text = paste0(
+      "Patient: ", patient_short,
+      "<br>Client: ", client,
+      "<br>Predicted survival: ", round(predicted_survival, 3),
+      "<br>Follow-up days: ", duration_days,
+      "<br>Outcome: ", outcome
+    )
+  )
+) +
+  ggplot2::geom_point(size = 3) +
+  ggplot2::coord_cartesian(ylim = c(0, 1)) +
+  ggplot2::labs(
+    title = paste0("Held-out ", horizon_years, "-year predictions"),
+    x = "Patients sorted by predicted survival",
+    y = "Predicted survival probability",
+    color = NULL,
+    shape = "Client"
+  ) +
+  ggplot2::theme_minimal()
+
+if (has_plotly) {
+  plotly::ggplotly(prediction_plot, tooltip = "text")
+} else {
+  prediction_plot
+}
+```
+
+## Global Cox coefficients
+
+Positive coefficients indicate higher modeled hazard per one-standard-deviation feature
+increase; negative coefficients indicate lower modeled hazard. Missingness indicators
+compare missing versus observed measurements. These are demo-model associations, not
+causal or clinical effects.
+
+```{r coefficient-plot}
+coefficients$feature <- factor(
+  coefficients$feature,
+  levels = coefficients$feature[order(coefficients$coefficient)]
+)
+coefficient_plot <- ggplot2::ggplot(
+  coefficients,
+  ggplot2::aes(
+    coefficient,
+    feature,
+    fill = direction,
+    text = paste0(
+      "Feature: ", feature,
+      "<br>Coefficient: ", round(coefficient, 3),
+      "<br>Hazard ratio: ", round(hazard_ratio, 3)
+    )
+  )
+) +
+  ggplot2::geom_col() +
+  ggplot2::geom_vline(xintercept = 0, linewidth = 0.5) +
+  ggplot2::labs(x = "Log-hazard coefficient", y = NULL, fill = NULL) +
+  ggplot2::theme_minimal()
+
+if (has_plotly) {
+  plotly::ggplotly(coefficient_plot, tooltip = "text")
+} else {
+  coefficient_plot
+}
+```
+
+## Patient-level results
+
+```{r prediction-table}
+shown_predictions <- predictions[c(
+  "client", "patient_id", "duration_days", "event",
+  "predicted_survival", "log_risk", "outcome_source"
+)]
+if (has_dt) {
+  DT::datatable(
+    shown_predictions,
+    filter = "top",
+    rownames = FALSE,
+    options = list(pageLength = 10, scrollX = TRUE)
+  ) |>
+    DT::formatRound(c("predicted_survival", "log_risk"), digits = 3)
+} else {
+  knitr::kable(shown_predictions, digits = 3)
+}
+```

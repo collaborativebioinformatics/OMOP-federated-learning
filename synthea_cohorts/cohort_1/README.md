@@ -28,6 +28,26 @@ From a Synthea checkout (Java 17+):
   --exporter.years_of_history=0
 ```
 
+## Data provenance
+
+The data in this cohort was prepared in three stages:
+
+1. The command above generated the raw Synthea `patients.csv`, `conditions.csv`, and
+   `observations.csv` files for Massachusetts using random seed `20260917`.
+2. `build_cohort.py` selected patients with type 2 diabetes (SNOMED `44054006`) and
+   wrote separate patient, diagnosis, and biomarker tables. Biomarkers are numeric
+   measurements for the configured LOINC codes within 365 days before or after each
+   patient's first diabetes diagnosis.
+3. `compact_source.py` retained only the 98 cohort patients and their relevant source
+   rows, then wrote deterministic gzip archives under `data/source_compact/` so the
+   source subset could be stored in Git.
+
+The project data contract specifies Synthea version `3.3.0`. Synthea's CSV output does
+not embed its generator version or the command used, however, so the archived CSV files
+cannot independently prove that provenance. When regenerating the data, record the
+Synthea Git tag or commit alongside the command; from the Synthea checkout it can be
+reported with `git describe --tags --always`.
+
 ## Build the tables
 
 ```bash

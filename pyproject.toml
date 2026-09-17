@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omopflare"
+version = "0.1.0"
+description = "Federated learning on OMOP CDM data with NVFlare"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.1",
+    "pyarrow>=17",
+    "numpy>=2",
+    "torch>=2.4",
+    "nvflare>=2.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omopflare"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

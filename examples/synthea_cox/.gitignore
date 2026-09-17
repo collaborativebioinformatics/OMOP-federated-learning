@@ -1,0 +1,7 @@
+data/shards/
+data/cohort_runs/
+workspace/
+results/
+figure/
+*.html
+*.egg-info/
