@@ -15,7 +15,7 @@ R package: OHDSI/Achilles <br>
 Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.) <br>
 Powers visual exploration in ATLAS <br>
 
-### Can include https://ohdsi.github.io/DataQualityDashboard/ as a tool for visual checks.
+### [Consolidated tool](https://ohdsi.github.io/DataQualityDashboard/) for visual checks and QC of OMOP data.
 
 ### Check	Primary Tool	Secondary/Support
 Missingness	- DQD (Completeness) -	White Rabbit (source comparison) <br>
