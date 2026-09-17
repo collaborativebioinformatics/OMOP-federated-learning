@@ -35,6 +35,10 @@ flowchart TB
     class J out
 ```
 
+## Programming language
+
+Python is the preferred language for code in this repo.
+
 ## Subproject 1: An automated way of getting biobank data into OMOP 
 
 ### Goal

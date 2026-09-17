@@ -117,6 +117,9 @@ cython_debug/
 .vscode/
 .idea/
 
+# macOS
+.DS_Store
+
 # Large reproducible Synthea exports; keep compact cohort tables tracked.
 synthea_cohorts/*/data/source/
 synthea_cohorts/*/*.jar
@@ -127,6 +130,3 @@ synthea_cohorts/*/*.jar
 # Example run artifacts
 examples/*/workspace/
 examples/omop_t2dm/spec.json
-
-synthea_cohorts/cohort_1/data/omop/
-synthea_cohorts/cohort_3/data/omop/

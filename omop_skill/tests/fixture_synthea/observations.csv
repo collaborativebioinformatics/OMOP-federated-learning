@@ -1,0 +1,9 @@
+DATE,PATIENT,ENCOUNTER,CATEGORY,CODE,DESCRIPTION,VALUE,UNITS,TYPE
+2020-01-01T10:10:00Z,p-1,e-1,vital-signs,39156-5,Body mass index (BMI) [Ratio],27.3,kg/m2,numeric
+2020-01-01T10:10:00Z,p-1,e-1,vital-signs,8480-6,Systolic Blood Pressure,132,mm[Hg],numeric
+2020-01-01T10:12:00Z,p-1,e-1,vital-signs,8867-4,Heart rate,72,/min,numeric
+2023-05-05T23:45:00Z,p-1,e-2,vital-signs,8480-6,Systolic Blood Pressure,141.5,mm[Hg],numeric
+2019-02-02T08:05:00Z,p-2,e-3,vital-signs,39156-5,Body mass index (BMI) [Ratio],31.0,kg/m2,numeric
+2019-02-02T08:06:00Z,p-2,e-3,vital-signs,39156-5,Body mass index (BMI) [Ratio],unknown,kg/m2,numeric
+2021-06-01T12:10:00Z,p-4,e-4,vital-signs,8480-6,Systolic Blood Pressure,120,mmHg,numeric
+2022-01-01T09:10:00Z,p-9,e-9,vital-signs,39156-5,Body mass index (BMI) [Ratio],25.0,kg/m2,numeric
