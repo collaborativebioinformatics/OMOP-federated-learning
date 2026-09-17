@@ -1,0 +1,36 @@
+{
+  "description": "Filtered Synthea source sufficient to reproduce the committed diabetes cohort",
+  "files": {
+    "conditions.csv.gz": {
+      "compressed_bytes": 4150,
+      "rows_excluding_header": 98,
+      "sha256": "b1c9fefb729cfd8ca4f37a511a8c6cee743196e24ba28c5dd2d5087e615caf68"
+    },
+    "observations.csv.gz": {
+      "compressed_bytes": 15531,
+      "rows_excluding_header": 1190,
+      "sha256": "bd503a20ade3089d3ffd3ed59a49e40aeda6271522b9986169749658e4f64da5"
+    },
+    "patients.csv.gz": {
+      "compressed_bytes": 13941,
+      "rows_excluding_header": 98,
+      "sha256": "9e74d246a257ad80bf78a047fc6a13734184cde1c7bc96b3b489b889c0e80873"
+    }
+  },
+  "filters": {
+    "condition_code": "44054006",
+    "numeric_observations_only": true,
+    "observation_codes": [
+      "2160-0",
+      "2339-0",
+      "2345-7",
+      "33914-3",
+      "38483-4",
+      "39156-5",
+      "4548-4",
+      "8480-6"
+    ],
+    "observation_window_days": 365,
+    "patients": 98
+  }
+}

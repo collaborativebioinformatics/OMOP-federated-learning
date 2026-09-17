@@ -62,3 +62,30 @@ not present in either source receive concept ID `0`, OMOP's unmapped convention.
 
 For a complete OMOP CDM database rather than these research-friendly CSV tables, use
 OHDSI's ETL-Synthea package, which converts Synthea CSV into OMOP CDM 5.3/5.4.
+
+## Compact source archive for Git
+
+The complete Synthea export is intentionally ignored because `observations.csv` alone is about
+345 MB. Create a reproducible, cohort-specific source archive with:
+
+```bash
+python3 synthea_cohort/compact_source.py
+```
+
+This writes tracked-size gzip files to `synthea_cohort/data/source_compact/`. They retain the original
+Synthea columns and row order, but contain only cohort patients, type-2-diabetes conditions, and the
+numeric configured biomarkers inside the ±365-day diagnosis window.
+
+To reconstruct ordinary CSV inputs and rebuild the cohort:
+
+```bash
+mkdir -p /tmp/synthea-compact
+gzip -dc synthea_cohort/data/source_compact/patients.csv.gz > /tmp/synthea-compact/patients.csv
+gzip -dc synthea_cohort/data/source_compact/conditions.csv.gz > /tmp/synthea-compact/conditions.csv
+gzip -dc synthea_cohort/data/source_compact/observations.csv.gz > /tmp/synthea-compact/observations.csv
+python3 synthea_cohort/build_cohort.py \
+  --input /tmp/synthea-compact --output /tmp/rebuilt-cohort \
+  --study-end 2026-09-17 --window-days 365
+```
+
+`manifest.json` records row counts, filters, compressed sizes, and SHA-256 hashes.
