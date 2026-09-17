@@ -11,7 +11,7 @@ from data import DEFAULT_HORIZON_DAYS, load_cohort, save_shards, save_site_shard
 from visualize import export_result_tables
 
 HERE = Path(__file__).resolve().parent
-COHORT_ROOT = HERE.parent / "synthea_cohorts"
+COHORT_ROOT = HERE.parents[1] / "synthea_cohorts"
 
 
 def parse_cohorts(value: str) -> list[str]:
