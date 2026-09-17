@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import gzip
-import math
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path

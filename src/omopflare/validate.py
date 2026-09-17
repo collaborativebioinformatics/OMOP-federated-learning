@@ -1,5 +1,3 @@
-"""Checks a site must pass before its weights are worth averaging."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -25,7 +23,13 @@ class Finding:
 def validate(source: OmopSource, spec: FeatureSpec, *, max_unmapped: float = 0.05) -> list[Finding]:
     """Compare one site against the spec it is about to extract with.
 
-    An ``error`` means the site's contribution would be wrong rather than merely noisy, so training should stop.
+    Args:
+        source: The site to check.
+        spec: The frozen feature schema.
+        max_unmapped: Largest tolerated fraction of rows with ``concept_id = 0``.
+
+    Returns:
+        Findings, where an ``error`` means the site's contribution would be wrong rather than noisy.
     """
     findings: list[Finding] = []
     findings += _check_vocabulary(source, spec)

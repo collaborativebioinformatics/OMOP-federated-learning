@@ -123,3 +123,10 @@ cython_debug/
 # Large reproducible Synthea exports; keep compact cohort tables tracked.
 synthea_cohorts/*/data/source/
 synthea_cohorts/*/*.jar
+
+# macOS
+.DS_Store
+
+# Example run artifacts
+examples/*/workspace/
+examples/omop_t2dm/spec.json

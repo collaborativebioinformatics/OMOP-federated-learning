@@ -138,3 +138,104 @@ def test_prevalence_hidden_when_events_are_few():
 def test_validate_flags_a_vocabulary_mismatch(site, spec):
     findings = of.validate(site, spec)
     assert any(f.check == "vocabulary_version" for f in findings)
+
+
+@pytest.fixture
+def presence_spec() -> of.FeatureSpec:
+    return of.FeatureSpec(
+        features=(of.Feature("t2dm", T2DM, "condition_occurrence"),),
+        vocabulary_version="v5.0",
+        lookback_days=365,
+    )
+
+
+def test_sparse_layout_rejects_numeric_features(site, spec, index):
+    batch = next(of.extract(site, spec, index))
+    with pytest.raises(ValueError, match="presence features only"):
+        of.to_matrix(batch, spec, layout="sparse")
+
+
+def test_auto_layout_is_dense_for_numeric_specs(site, spec, index):
+    batch = next(of.extract(site, spec, index))
+    _, matrix = of.to_matrix(batch, spec, layout="auto")
+    assert isinstance(matrix, np.ndarray)
+
+
+def test_auto_layout_is_sparse_for_presence_specs(site, presence_spec, index):
+    batch = next(of.extract(site, presence_spec, index))
+    _, matrix = of.to_matrix(batch, presence_spec, layout="auto")
+    assert matrix.shape == (3, 1)
+    assert matrix.todense()[:, 0].tolist() == [1.0, 0.0, 0.0]
+
+
+def test_unknown_layout_rejected(site, spec, index):
+    batch = next(of.extract(site, spec, index))
+    with pytest.raises(ValueError, match="unknown layout"):
+        of.to_matrix(batch, spec, layout="ragged")
+
+
+def test_sequence_tensor_is_sparse_with_nan_fill(site, spec, index):
+    _ids, tensor = next(of.extract_sequence(site, spec, index, bins=4))
+    assert tensor.shape == (3, 2, 4)
+    assert np.isnan(tensor.fill_value)
+    assert np.isnan(tensor.todense()[1, 0, 0])
+
+
+def test_sequence_bins_by_distance_from_the_landmark(site, spec, index):
+    # 2020-06-01 is 214 days before the landmark, so with two bins over 365 days it belongs to the older half.
+    _, tensor = next(of.extract_sequence(site, spec, index, bins=2))
+    dense = tensor.todense()
+    assert dense[0, 0, 0] == 25.0
+    assert np.isnan(dense[0, 0, 1])
+
+    _, single = next(of.extract_sequence(site, spec, index, bins=1))
+    assert single.todense()[0, 0, 0] == 25.0
+
+
+def test_sequence_drops_wrong_units_and_implausible_values(site, spec, index):
+    _, tensor = next(of.extract_sequence(site, spec, index, bins=4))
+    dense = tensor.todense()
+    assert np.isnan(dense[1, 0]).all()
+    assert np.isnan(dense[2, 0]).all()
+
+
+def test_sequence_rejects_zero_bins(site, spec, index):
+    with pytest.raises(ValueError, match="bins must be positive"):
+        next(of.extract_sequence(site, spec, index, bins=0))
+
+
+def test_to_ehrdata_carries_the_spec(site, spec, index):
+    ids, tensor = next(of.extract_sequence(site, spec, index, bins=5))
+    edata = of.to_ehrdata(ids, tensor, spec)
+    assert edata.shape == (3, 2, 5)
+    assert list(edata.var.index) == ["bmi", "t2dm"]
+    assert edata.tem["days_before_index"].tolist()[-1] == 0.0
+
+
+def test_concept_counts_suppress_small_cells(site, spec):
+    counts = of.concept_counts(site, spec.features, min_cell_count=5)
+    assert counts["bmi"] == 0
+    assert of.concept_counts(site, spec.features, min_cell_count=1)["bmi"] == 1
+
+
+def test_propose_spec_keeps_features_every_site_has(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 30, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365)
+    assert [f.name for f in agreed.features] == ["bmi", "t2dm"]
+
+
+def test_propose_spec_drops_a_feature_one_site_lacks(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 0, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365)
+    assert [f.name for f in agreed.features] == ["t2dm"]
+
+
+def test_propose_spec_min_sites_relaxes_the_intersection(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 0, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365, min_sites=1)
+    assert [f.name for f in agreed.features] == ["bmi", "t2dm"]
+
+
+def test_propose_spec_raises_when_nothing_qualifies(spec):
+    with pytest.raises(ValueError, match="no candidate reached"):
+        of.propose_spec([{"bmi": 0, "t2dm": 0}], spec.features, vocabulary_version="v5.0", lookback_days=365)
