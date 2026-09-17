@@ -1,53 +1,28 @@
-# Multi-site diabetes cohort
+# Resampled demo cohort
 
-Five sites for the federated prototype, following the OMOP tables in [`contract/data_contract.md`](../../contract/data_contract.md).
-Each site is one Synthea population and one NVFlare client, so no site sees another's patients.
+50,000 patients resampled from [`cohort_1`](../cohort_1), in the same normalized table format.
+It exists to give the federation code a cohort large enough to split into clients with stable train/test splits.
 
 ```bash
-python build_datasets.py
+python generate_cohort.py
 ```
-
-The script downloads Synthea v3.3.0, generates one population per site, writes the contract tables and a compact copy of the source.
-Every site has a fixed seed, so re-running reproduces the same data.
 
 ## Layout
 
 ```
-data/omop/<site>/             the four contract tables
-    person.csv
-    observation_period.csv
-    measurement.csv
-    condition_occurrence.csv
-data/source_compact/<site>/   filtered Synthea source, gzipped
-data/source/<site>/csv/       full Synthea export, not tracked in git
+data/cohort/patients.csv.gz      50,000 rows
+data/cohort/diagnoses.csv.gz     50,000 rows
+data/cohort/biomarkers.csv.gz    610,681 rows
 ```
 
-The tracked tables and compact source total 16 MB.
-The full export is 3.9 GB, so it is gitignored; `build_datasets.py` regenerates it.
-`data/source_compact/manifest.json` records each site's parameters, row counts and sha256.
+The tables join on `patient_id` and match `cohort_1/data/cohort`, so anything reading that cohort reads this one.
+`metadata.json` records the seed, the source template and the jitter applied.
 
-## Sites
+## What this is not
 
-Sites differ in age range, size and gender, so T2DM prevalence spans a factor of sixteen.
-That is what makes the federation non-IID, and age is the lever doing most of the work.
+This is not a fresh Synthea population.
+It resamples 98 real Synthea patients with 3% biomarker jitter, so the effective sample size is still 98 regardless of the 50,000 rows.
+Treat it as a load and plumbing fixture, not as data to draw conclusions from.
 
-| site | state | ages | gender | persons | T2DM |
-| --- | --- | --- | --- | --- | --- |
-| site_a | Illinois | 18-40 | M+F | 1235 | 1.1% |
-| site_b | Washington | 35-65 | M+F | 1000 | 6.3% |
-| site_c | Arizona | 65-95 | M+F | 1128 | 17.4% |
-| site_d | Colorado | 40-80 | M+F | 507 | 12.8% |
-| site_e | Oregon | 25-60 | F | 744 | 7.0% |
-
-Person counts exceed the requested population because Synthea also writes deceased patients.
-Site sizes differ deliberately, so FedAvg has to weight clients unequally.
-
-## Contract compliance
-
-`build_datasets.py` writes the columns of contract sections 4.1 to 4.4 in the listed order and lowercase, with dates as `YYYY-MM-DD`.
-Measurements cover LOINC 39156-5 and 8480-6, conditions SNOMED 44054006, as section 5 selects.
-Concept IDs are the hardcoded values of section 5, so no Athena vocabulary download is involved.
-
-Two points to confirm with Subgroup 2.
-Section 3 specifies one site of 100 patients, whereas this builds five sites of 400 to 1200.
-The `reference/` folder of section 4, holding the same tables from OHDSI ETL-Synthea, does not exist yet.
+No raw Synthea export is retained, so the cohort cannot be traced back past `cohort_1`.
+For a cohort with genuinely independent sites, use [`cohort_2`](../cohort_2), where each site is its own Synthea population.
