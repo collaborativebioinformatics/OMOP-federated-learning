@@ -29,6 +29,8 @@ python -m unittest discover -s omop_skill/tests
 
 The fixture in `tests/fixture_synthea/` uses the Synthea 3.3.0 column layout. `tests/expected_omop/` is what the hand-written mapping in `synthea_datasets/build.py` produces for it, so the test proves the skill's mapping gives the same tables.
 
-## Limits
+## Results, tests, limits
 
-MVP. Concept IDs come from contract section 5, there is no Athena lookup yet. One mapping file per source.
+[RESULTS.md](RESULTS.md) has the numbers per site, how correctness was tested, how the skill differs from the hand-written ETL, and what it can't do yet.
+
+Short version: on Synthea the output is identical to the hand-written ETL. The difference is how it gets there, a mapping file instead of code, a contract check on every output, and a profile of the source to write the next mapping from.

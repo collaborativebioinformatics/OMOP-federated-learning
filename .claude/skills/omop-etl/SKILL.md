@@ -11,7 +11,7 @@ Existing software does the heavy lifting. DuckDB profiles the source and runs th
 
 ## Inputs
 
-- A folder of raw CSV files per site, for example `synthea_datasets/raw/site_a/csv/`
+- A folder of raw `.csv` or `.csv.gz` files per site, for example `synthea_cohorts/cohort_2/data/source_compact/site_a/`
 - `omop_skill/contract.yaml`, the machine-readable data contract
 - Existing mappings in `omop_skill/mappings/`, as examples
 
@@ -38,7 +38,7 @@ Existing software does the heavy lifting. DuckDB profiles the source and runs th
 
 4. **Validate every site.**
    `python omop_skill/scripts/validate_contract.py <output_dir>/<site>`
-   If a trusted output for the same raw data exists, for example `synthea_datasets/omop/<site>`, add `--reference <that_dir>`.
+   If a trusted output for the same raw data exists, for example `synthea_cohorts/cohort_2/data/omop/<site>`, add `--reference <that_dir>`.
 
 5. **Fix and repeat.** If validation fails, fix the mapping and rerun steps 3 and 4. Stop after three attempts and report what still fails.
 
