@@ -4,7 +4,7 @@ State on 2026-09-17, branch `omop-skill-mvp`.
 
 Two test series.
 Revision 1 of `contract/data_contract.md` on `cohort_2`, against the team's hand-written ETL (first sections).
-Revision 2 blind, on a fresh Synthea run, with the comparison against ETL-Synthea prepared but not run yet (section "Blind run").
+Revision 2 blind, on a fresh Synthea run, compared against OHDSI ETL-Synthea (section "Blind run").
 
 Raw Synthea data in, the four contract tables out, checked against the contract.
 On all five sites of `cohort_2` the output is identical to the tables the team wrote by hand, and `omopflare` from subproject 2 reads it without errors.
@@ -47,7 +47,7 @@ The mapping was written after the data existed, from the contract text and the p
 | Structure checks | Pass: columns, types, concept IDs, person links |
 | Plausibility check | Fails: 3,103 HbA1c values below 3 % in 87 persons, 99 systolic values below 60 in 9 adults |
 | Site split | site_a 387, site_b 388, site_c 387 persons |
-| Comparison with ETL-Synthea | `scripts/compare_reference.py` ready and self-tested: an identical copy passes, four planted changes are all found. Reference not built yet. |
+| Comparison with ETL-Synthea | Measurements and diagnoses identical, persons identical except race for 11 patients, see below |
 
 The raw data comes from:
 
@@ -60,6 +60,28 @@ Findings:
 - Synthea's HbA1c runs low: median 3.9 %, 5th percentile 2.8 %, also for patients with type 2 diabetes. The plausibility failure comes from the data, the ETL copies the values. HbA1c as the target needs a second look.
 - Rerunning the command gives the same rows in a different order. `person_id` follows file order, so the `person_id % 3` split moves patients between sites across reruns. Numbering patients sorted by `Id` would fix that.
 - The contract doesn't say which remainder goes to which site. `split_sites.py` uses 0 for site_a.
+
+### Comparison with OHDSI ETL-Synthea
+
+ETL-Synthea converted the same raw data into a full OMOP CDM 5.4 database on DuckDB: 1,162 persons, 199,567 visits, 50,649 conditions, 1,952,281 measurements, 148,431 drug exposures.
+`scripts/compare_reference.py` compared it with the skill output as section 8 of the contract describes, persons joined on `person_source_value`.
+The comparison script was self-tested first: an identical copy passes, four planted changes are all found.
+
+| Table | Result |
+|---|---|
+| person | 1,162 in both. Gender, year of birth and ethnicity identical. Race differs for 11 persons. |
+| measurement | Identical: 151,219 rows, every value on every date |
+| condition_occurrence | Identical: 94 persons with type 2 diabetes, every start date |
+
+The 11 race differences are the 11 patients with Synthea race `hawaiian`.
+The contract maps it to 8557, Native Hawaiian or Other Pacific Islander. ETL-Synthea maps only white, black and asian and writes 0 for the rest.
+The difference comes from the contract, not from a mapping error.
+
+The vocabulary in the same database confirms all 16 concept IDs of contract section 6: each exists, is standard and valid, and the four source codes map to them via `Maps to`.
+Athena release `v5.0 29-AUG-26`, the date section 2 of the contract asks for.
+`native` (5 patients) could map to 8657, American Indian or Alaska Native, instead of 0.
+
+Rebuilding the reference: [reference/README.md](reference/README.md).
 
 ## How it differs from the hand-written ETL
 
@@ -88,7 +110,7 @@ The skill pays off from the second source on, and as a check anyone can run on a
 ## What it can't do yet
 
 - Prove it works on a source other than Synthea. The revision 2 mapping was written blind from contract and profile, but the source was Synthea again.
-- Look up concepts. Only the 9 concept IDs of the contract are known, nothing is checked against Athena.
+- Look up concepts on its own. The concept IDs come from the contract. They were checked against the Athena vocabulary once, not by the skill.
 - Cover more than 4 tables and 3 source codes: BMI, systolic blood pressure, type 2 diabetes. Race and ethnicity are always 0.
 - Produce a full OMOP database: no vocabulary tables, visits, drugs or procedures.
 
