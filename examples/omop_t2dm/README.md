@@ -10,7 +10,7 @@ python run.py --sites ../../synthea_cohorts/cohort_3/data/omop --rounds 20
 Each run counts what the sites can supply, agrees a spec, validates against it, combines a federated scaler, then trains a `RiskMLP` with NVFlare FedAvg.
 
 `cohort.py` holds the candidate features and the cohort definition: the landmark is each patient's fiftieth birthday and the label is a later type 2 diabetes diagnosis.
-`client.py` is what NVFlare launches per site.
+`client.py` is what NVFlare launches per site; it streams its cohort through `StreamingCohort` rather than materialising it.
 
 ## The spec is negotiated, not hand-written
 

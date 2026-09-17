@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from functools import partial
 from pathlib import Path
 
 import numpy as np
 import nvflare.client as flare
+import pyarrow as pa
 import torch
 from model import RiskMLP
 from sklearn.metrics import roc_auc_score
@@ -13,14 +15,8 @@ from torch import nn
 import omopflare as of
 
 
-def _split(n: int, test_fraction: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
-    order = np.random.default_rng(seed).permutation(n)
-    cut = round(n * (1 - test_fraction))
-    return order[:cut], order[cut:]
-
-
 def load(site: Path, spec: of.FeatureSpec, seed: int):
-    """Build this site's train and test cohorts from its own OMOP tables.
+    """Build this site's train and test cohorts without materialising them.
 
     Args:
         site: Directory of OMOP tables for one site.
@@ -28,30 +24,27 @@ def load(site: Path, spec: of.FeatureSpec, seed: int):
         seed: Seed for the train/test split.
 
     Returns:
-        The train dataset, the test dataset and the site's statistics.
+        The train cohort, the test cohort and the positive class weight.
     """
     from cohort import index_table
 
     source = of.OmopSource(site)
     index = index_table(source)
-    batches = list(of.extract(source, spec, index))
-    person_ids = np.concatenate([of.to_matrix(b, spec)[0] for b in batches])
-    features = np.vstack([of.to_matrix(b, spec)[1] for b in batches])
+    fold = pa.compute.bit_wise_and(pa.compute.cast(index.column("person_id"), pa.int64()), pa.scalar(3, pa.int64()))
+    held_out = pa.compute.equal(fold, pa.scalar(seed % 4, pa.int64()))
+    train_index = index.filter(pa.compute.invert(held_out))
+    test_index = index.filter(held_out)
 
-    labels = dict(zip(index.column("person_id").to_pylist(), index.column("label").to_pylist(), strict=True))
-    y = np.array([labels[int(p)] for p in person_ids], dtype=np.float64)
+    scaler = of.site_statistics(source, spec, train_index)
+    labels = np.asarray(train_index.column("label"))
+    positives = float(labels.sum())
+    weight = (len(labels) - positives) / max(positives, 1.0)
 
-    train, test = _split(len(y), 0.25, seed)
-    stats = of.SiteStats.from_matrix(features[train])
-    scaled = np.nan_to_num(of.standardize(features, stats))
-    return (
-        of.CohortDataset(scaled[train], y[train]),
-        of.CohortDataset(scaled[test], y[test]),
-        stats,
-    )
+    cohort = partial(of.StreamingCohort, source, spec, scaler=scaler, shuffle_buffer=4096)
+    return cohort(train_index), cohort(test_index), weight
 
 
-def train_epochs(model: nn.Module, loader, epochs: int, lr: float) -> int:
+def train_epochs(model: nn.Module, loader, epochs: int, lr: float, weight: float) -> int:
     """Train in place and report the optimiser steps taken.
 
     Args:
@@ -59,14 +52,12 @@ def train_epochs(model: nn.Module, loader, epochs: int, lr: float) -> int:
         loader: Training batches.
         epochs: Passes over the loader.
         lr: Learning rate.
+        weight: Positive class weight.
 
     Returns:
         Number of optimiser steps.
     """
-    positive = sum(float(labels.sum()) for _, labels in loader)
-    total = sum(len(labels) for _, labels in loader)
-    weight = torch.tensor((total - positive) / max(positive, 1.0), dtype=torch.float32)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=weight)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(weight, dtype=torch.float32))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
     steps = 0
@@ -90,9 +81,12 @@ def auroc(model: nn.Module, loader) -> float:
         The AUROC, or NaN if only one class is present.
     """
     model.eval()
+    scores, labels = [], []
     with torch.no_grad():
-        scores = np.concatenate([torch.sigmoid(model(features)).numpy() for features, _ in loader])
-    labels = np.concatenate([labels.numpy() for _, labels in loader])
+        for features, batch_labels in loader:
+            scores.append(torch.sigmoid(model(features)).numpy())
+            labels.append(batch_labels.numpy())
+    scores, labels = np.concatenate(scores), np.concatenate(labels)
     if len(np.unique(labels)) < 2:
         return float("nan")
     return float(roc_auc_score(labels, scores))
@@ -108,7 +102,7 @@ def main() -> None:
     args = parser.parse_args()
 
     spec = of.FeatureSpec.from_json(args.spec)
-    train_set, test_set, _ = load(args.site, spec, args.seed)
+    train_set, test_set, weight = load(args.site, spec, args.seed)
     train_loader = of.dataloader(train_set, batch_size=64, shuffle=True)
     test_loader = of.dataloader(test_set, batch_size=256)
     model = RiskMLP(spec.width)
@@ -120,7 +114,7 @@ def main() -> None:
             break
         model.load_state_dict(received.params)
         score = auroc(model, test_loader)
-        steps = train_epochs(model, train_loader, args.epochs, args.lr)
+        steps = train_epochs(model, train_loader, args.epochs, args.lr, weight)
         flare.send(
             flare.FLModel(
                 params={key: value.cpu() for key, value in model.state_dict().items()},
