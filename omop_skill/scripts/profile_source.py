@@ -27,7 +27,7 @@ def cell(value: object) -> str:
 
 def profile(source: Path, files: list[str] | None = None) -> str:
     source = Path(source)
-    paths = [source / name for name in files] if files else sorted(source.glob("*.csv"))
+    paths = [source / name for name in files] if files else sorted([*source.glob("*.csv"), *source.glob("*.csv.gz")])
     con = duckdb.connect()
     lines = [f"# Source profile: `{source.as_posix()}`", ""]
     for path in paths:

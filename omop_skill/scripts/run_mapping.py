@@ -22,6 +22,8 @@ def load_sources(con: duckdb.DuckDBPyConnection, source: Path, files: dict[str, 
     con.execute("SET threads = 1")
     for name, filename in files.items():
         path = source / filename
+        if not path.is_file() and (source / f"{filename}.gz").is_file():
+            path = source / f"{filename}.gz"  # DuckDB reads gzipped CSV directly
         if not path.is_file():
             raise FileNotFoundError(f"missing source file: {path}")
         con.execute(

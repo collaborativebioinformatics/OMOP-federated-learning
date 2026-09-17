@@ -11,13 +11,15 @@ A Claude skill plus three scripts. Converts raw source CSVs into the four OMOP t
 
 The skill itself lives in `.claude/skills/omop-etl/SKILL.md`, so Claude Code picks it up when you open the repo.
 
-## Run it on Synthea 3.3.0
+## Run it on cohort_2 (Synthea 3.3.0, five sites)
 
 ```bash
 pip install -r omop_skill/requirements.txt
-python omop_skill/scripts/run_mapping.py --mapping omop_skill/mappings/synthea_3.3.0.yaml --source synthea_datasets/raw/site_a/csv --out omop_skill/output/site_a
-python omop_skill/scripts/validate_contract.py omop_skill/output/site_a --reference synthea_datasets/omop/site_a
+python omop_skill/scripts/run_mapping.py --mapping omop_skill/mappings/synthea_3.3.0.yaml --source synthea_cohorts/cohort_2/data/source_compact/site_a --out omop_skill/output/site_a
+python omop_skill/scripts/validate_contract.py omop_skill/output/site_a --reference synthea_cohorts/cohort_2/data/omop/site_a
 ```
+
+Gzipped source files work as they are. On all five sites of cohort_2 the output passes the contract check and is identical to `synthea_cohorts/cohort_2/data/omop/`, about 5 seconds per site.
 
 ## Test
 
