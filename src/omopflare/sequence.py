@@ -7,6 +7,7 @@ import numpy as np
 import pyarrow as pa
 import sparse
 
+from .features import Index, as_table
 from .source import OmopSource
 from .spec import CONCEPT_COLUMN, DATE_COLUMN, VALUE_COLUMN, FeatureSpec
 
@@ -67,7 +68,7 @@ def _domain_query(domain: str, spec: FeatureSpec, bins: int, aggregate: Aggregat
 def extract_sequence(
     source: OmopSource,
     spec: FeatureSpec,
-    index: pa.Table,
+    index: Index,
     *,
     bins: int,
     aggregate: Aggregate = "last",
@@ -80,7 +81,7 @@ def extract_sequence(
     Args:
         source: The site to read from.
         spec: The frozen feature schema.
-        index: Table with ``person_id`` and ``index_date``.
+        index: SQL, a duckdb relation or an Arrow table with ``person_id`` and ``index_date``.
         bins: Number of time bins across ``spec.lookback_days``.
         aggregate: How to reduce several events in one bin.
         block_size: People per yielded tensor.
@@ -93,7 +94,7 @@ def extract_sequence(
     """
     if bins <= 0:
         raise ValueError(f"bins must be positive, got {bins}")
-    index = index.rename_columns([name.lower() for name in index.column_names])
+    index = as_table(source, index)
     missing = {"person_id", "index_date"} - set(index.column_names)
     if missing:
         raise ValueError(f"index table is missing {sorted(missing)}")

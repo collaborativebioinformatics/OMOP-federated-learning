@@ -3,12 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 
 import numpy as np
-import pyarrow as pa
 import sparse
 import torch
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 
-from .features import Layout, extract, to_matrix
+from .features import Index, Layout, as_table, extract, to_matrix
 from .source import OmopSource
 from .spec import FeatureSpec
 from .stats import SiteStats, standardize
@@ -64,14 +63,14 @@ class StreamingCohort(IterableDataset):
         self,
         source: OmopSource,
         spec: FeatureSpec,
-        index: pa.Table,
+        index: Index,
         *,
         scaler: SiteStats | None = None,
         batch_size: int = 50_000,
         shuffle_buffer: int = 0,
         layout: Layout = "auto",
     ) -> None:
-        index = index.rename_columns([name.lower() for name in index.column_names])
+        index = as_table(source, index)
         if "label" not in index.column_names:
             raise ValueError("index table needs a label column")
         self.source = source
@@ -104,7 +103,7 @@ class StreamingCohort(IterableDataset):
 def site_statistics(
     source: OmopSource,
     spec: FeatureSpec,
-    index: pa.Table,
+    index: Index,
     *,
     batch_size: int = 50_000,
 ) -> SiteStats:
@@ -119,6 +118,7 @@ def site_statistics(
     Returns:
         Count, sum and sum of squares per column, safe to send to the server.
     """
+    index = as_table(source, index)
     total: SiteStats | None = None
     for batch in extract(source, spec, index, batch_size=batch_size):
         _, matrix = to_matrix(batch, spec, layout="dense")

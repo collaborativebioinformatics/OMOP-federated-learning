@@ -2,6 +2,12 @@
 
 Federated learning on OMOP CDM data with NVFlare, for cohorts that do not fit in memory.
 
+```bash
+pip install -e .
+```
+
+## Quickstart
+
 ```python
 import omopflare as of
 
@@ -15,29 +21,141 @@ spec = of.FeatureSpec(
 )
 
 site = of.OmopSource("/data/omop/site_a")
-if failures := of.errors(of.validate(site, spec)):
-    raise SystemExit("\n".join(str(f) for f in failures))
+of.validate(site, spec, strict=True)
 
-index = site.sql("select person_id, min(condition_start_date) as index_date from condition_occurrence group by 1")
-for batch in of.extract(site, spec, index.arrow().read_all()):
-    person_ids, X = of.to_matrix(batch, spec)
+person_ids, X = of.design_matrix(site, spec, "select person_id, current_date as index_date from person")
 ```
 
-## Rules the API enforces
+The index is SQL, a duckdb relation or an Arrow table, and needs `person_id` and `index_date`.
+Use `of.extract` instead of `of.design_matrix` to stream batches rather than build one matrix.
+
+## End-to-end NVFlare job
+
+Two files, both runnable as written against `synthea_cohorts/cohort_2/data/omop`.
+
+`fl_model.py`, kept importable because NVFlare rebuilds the model on the server from a class path:
+
+```python
+import torch
+from torch import nn
+
+
+class Net(nn.Module):
+    def __init__(self, n_features: int) -> None:
+        super().__init__()
+        self.n_features = n_features
+        self.net = nn.Sequential(nn.Linear(n_features, 16), nn.ReLU(), nn.Linear(16, 1))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(torch.nan_to_num(x)).squeeze(-1)
+```
+
+`fl_client.py`, what each site runs:
+
+```python
+import argparse
+
+import nvflare.client as flare
+import torch
+from fl_model import Net
+from torch import nn
+
+import omopflare as of
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--site", required=True)
+parser.add_argument("--spec", required=True)
+args = parser.parse_args()
+
+spec = of.FeatureSpec.from_json(args.spec)
+site = of.OmopSource(args.site)
+index = """
+    select p.person_id,
+           cast(p.year_of_birth + 50 || '-01-01' as date) as index_date,
+           cast(count(c.person_id) > 0 as double) as label
+    from person p
+    left join condition_occurrence c on c.person_id = p.person_id and c.condition_concept_id = 201826
+    group by p.person_id, p.year_of_birth
+"""
+
+scaler = of.site_statistics(site, spec, index)
+cohort = of.StreamingCohort(site, spec, index, scaler=scaler)
+loader = of.dataloader(cohort, batch_size=64)
+
+model = Net(spec.width)
+criterion = nn.BCEWithLogitsLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+
+flare.init()
+while flare.is_running():
+    received = flare.receive()
+    if received is None:
+        break
+    model.load_state_dict(received.params)
+    model.train()
+    steps = 0
+    for features, labels in loader:
+        optimizer.zero_grad()
+        criterion(model(features), labels).backward()
+        optimizer.step()
+        steps += 1
+    flare.send(
+        flare.FLModel(
+            params={k: v.cpu() for k, v in model.state_dict().items()},
+            meta={"NUM_STEPS_CURRENT_ROUND": steps},
+        )
+    )
+```
+
+`fl_run.py`, the server side, plain NVFlare:
+
+```python
+from pathlib import Path
+
+from fl_model import Net
+from nvflare.app_opt.pt.recipes import FedAvgRecipe
+from nvflare.recipe import SimEnv, set_per_site_config
+
+import omopflare as of
+
+sites = sorted(Path("synthea_cohorts/cohort_2/data/omop").iterdir())
+spec = of.FeatureSpec(
+    features=(of.Feature("bmi", 3038553, "measurement", unit_concept_id=9531, plausible_range=(10.0, 80.0)),),
+    vocabulary_version="synthea-contract",
+    lookback_days=3650,
+)
+spec.to_json("spec.json")
+
+recipe = FedAvgRecipe(
+    name="omopflare_demo",
+    model=Net(spec.width),
+    min_clients=len(sites),
+    num_rounds=5,
+    train_script="fl_client.py",
+)
+set_per_site_config(
+    recipe,
+    {s.name: {"train_args": f"--site {s.resolve()} --spec {Path('spec.json').resolve()}"} for s in sites},
+)
+recipe.execute(SimEnv(clients=[s.name for s in sites], workspace_root="workspace"))
+```
+
+NVFlare is not wrapped; anything in its docs works unchanged.
+
+## What the API enforces
 
 The spec is frozen at run time because FedAvg averages weight tensors, so every site must produce the same width and column order.
-Derive it from a counting round rather than writing it blind: `concept_counts` reports suppressed per-site patient counts and `propose_spec` keeps what enough sites can supply.
-A site missing a kept concept gets an all-missing column rather than a narrower matrix.
+Derive it from a counting round rather than writing it blind: `concept_counts` reports suppressed per-site counts and `propose_spec` keeps what enough sites can supply.
 
 Numeric features pin a `unit_concept_id`; rows in other units are dropped, not converted.
 
-`validate` errors on a `vocabulary_version` mismatch, a non-standard or invalid concept, and an unmapped rate above `max_unmapped`.
-`concept_id = 0` means present but unmapped, not absent.
+`validate` errors on a vocabulary mismatch, a non-standard or invalid concept, and an unmapped rate above `max_unmapped`.
+In OMOP `concept_id = 0` means present but unmapped, not absent.
 
 `extract` reads only events strictly before `index_date`, within `lookback_days`, and inside the observation period.
 
 `SiteStats` holds count, sum and sum of squares, which combine into one scaler.
-Min and max are excluded; each is a single patient's value.
+Min and max are excluded because each is a single patient's value.
 `suppressed` and `prevalence` take a `min_cell_count`, default 5.
 
 ## Time series
@@ -49,17 +167,12 @@ for person_ids, tensor in of.extract_sequence(site, spec, index, bins=10, aggreg
     edata = of.to_ehrdata(person_ids, tensor, spec)
 ```
 
-## Training
-
-`CohortDataset` holds a site in memory, `StreamingCohort` re-runs the query per epoch, and `dataloader` wraps either.
-NVFlare is used directly rather than wrapped; see `examples/omop_t2dm` for a `FedAvgRecipe` and a client loop.
+`to_ehrdata` keeps the tensor sparse.
 
 ## Scale
 
 Tables stay on disk as duckdb views over Parquet or CSV, with concept and date filters pushed into the scan.
-`extract_sequence` joins a registered feature table rather than emitting one column per feature, so a spec of thousands of concepts stays one query.
+One site of 1M patients and 50M measurement rows extracts in under a second; duckdb's buffer pool will use the memory it is given, so set `memory_limit` if that matters.
 Parquet sorted by `person_id` is fastest.
 
-## Missing
-
-Porting `examples/synthea_cox` onto the package, and a streaming `extract_sequence` for tensors that exceed memory per block.
+Table and column names are matched case-insensitively, so OHDSI exports with `PERSON.csv` and `PERSON_ID` load unchanged.
