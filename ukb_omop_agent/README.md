@@ -1,6 +1,27 @@
 # UKB-to-OMOP mapping agent
 
-`general_agent.py` is the supported UKB-to-OMOP pilot workflow. It reads a versioned source specification, proposes Athena vocabulary mappings, applies only reviewed mappings, and replays the transformation for QC. Mapping is deterministic and does not call an LLM. Core commands use the Python standard library; graphical QC additionally needs Matplotlib.
+`general_agent.py` is the supported UKB-to-OMOP pilot workflow. **Mapping is code-based:** the Python scripts perform the mapping and QC; they do not call an LLM. Core commands use the Python standard library; graphical QC additionally needs Matplotlib.
+
+## How mapping works
+
+For diagnoses, the scripts look up each UKB ICD-10 code in the local Athena vocabulary and show its proposed standard OMOP concepts. **A proposal is not a mapping:** a person chooses which target to approve in `mapping_review.csv`. The scripts then write the reviewed diagnoses to OMOP and check the result. BMI, blood pressure, sex, and birth year follow the predefined UKB field rules in `specs/ukb_pilot_v1.json`; they do not depend on the diagnosis review.
+
+```mermaid
+flowchart LR
+    A[UKB synthetic data] --> B[Python scripts]
+    V[Local Athena vocabulary] --> B
+    S[UKB field rules] --> B
+    B --> C[Diagnosis proposals]
+    C --> D[Your review]
+    D --> E[OMOP Condition]
+    B --> F[OMOP Person and Measurement]
+    E --> G[QC reports]
+    F --> G
+    L[Codex or Claude Code] -. runs and explains .-> B
+    L -. helps discuss .-> D
+```
+
+Codex, Claude Code, or another coding assistant with access to this repository can **run the same scripts and discuss their output with you**. For example, ask it to inspect E11, explain the proposed concepts and missing codes, record a specific mapping you approve, and interpret QC. The assistant helps with the conversation; the Python code still checks and applies the mapping. You can also run every command below yourself, without an assistant. For diagnoses beyond E11, see the [general subset options](ukb/README.md).
 
 ## Run the UKB workflow
 
@@ -59,7 +80,9 @@ python3 ukb_omop_agent/plot_qc.py \
   --review "$RUN_DIR/mapping_review.csv"
 ```
 
-This writes `graphical_qc.png`, `graphical_qc.pdf`, `graphical_qc.json`, `mapping_detail.png`, and `mapping_detail.pdf` in the OMOP output directory. It also writes `mapping_inventory.csv` (every selected source code, its Athena candidates, approved targets, counts, and status), `mapped_codes.csv`, `missing_codes.csv`, `field_summary.csv`, and `mapping_inventory_summary.json`. `missing_codes.csv` includes codes with unmapped dated records or source records without valid paired dates; it has only a header if none are missing. Missing reasons distinguish an absent Athena source concept, no standard candidate, pending review, explicit rejection, and a reviewed mapping that failed to write. The graphical QC shows only the diagnosis selection recorded at inspection. The field summary also counts configured numeric source events. For the UKB pilot, numeric QC flags BMI outside 10–80 kg/m² and systolic blood pressure outside 60–250 mmHg; these are QC ranges, not clinical diagnoses. Use the exact reviewed CSV used at apply time, because the plotting command verifies its hash.
+This writes `graphical_qc.png`, `graphical_qc.pdf`, `graphical_qc.json`, `mapping_detail.png`, and `mapping_detail.pdf` in the OMOP output directory. It also writes `mapping_inventory.csv` (every selected source code, its Athena candidates, approved targets, counts, and status), `mapped_codes.csv`, `missing_codes.csv`, `field_summary.csv`, and `mapping_inventory_summary.json`. `missing_codes.csv` includes codes with unmapped dated records or source records without valid paired dates; it has only a header if none are missing. Missing reasons distinguish an absent Athena source concept, no standard candidate, pending review, explicit rejection, and a reviewed mapping that failed to write. Use the exact reviewed CSV used at apply time, because the plotting command verifies its hash.
+
+**The "Selected source record coverage" chart counts selected diagnoses only.** BMI and blood-pressure mappings are counted separately in the field summary; sex and birth year populate Person. For the UKB pilot, numeric QC flags BMI outside 10–80 kg/m² and systolic blood pressure outside 60–250 mmHg; these are QC ranges, not clinical diagnoses.
 
 To refresh only the detailed CSV and JSON inventory from an existing applied run, without replotting:
 

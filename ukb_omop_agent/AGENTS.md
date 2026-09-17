@@ -9,3 +9,11 @@ Work only on the UK Biobank synthetic extract and the local OMOP vocabulary supp
 5. Run `general_agent.py qc`, `plot_qc.py`, and the tests after changing a mapping. The current QC replays the selected input and review file and supports multiple approved targets. Treat coverage as technical annotation, not clinical correctness. Review broad rollups and date/provenance assumptions separately.
 
 Use `README.md` for commands and `general_agent.py` for the configuration-driven inspect/apply/QC workflow. The narrower `agent.py` is retained as a legacy pilot. Keep source-specific assumptions in a versioned specification. Do not modify `omop_skill` or its separate contract as a shortcut.
+
+## Conversational workflow in Codex
+
+This Codex task is the LLM interface; when Codex is signed in with ChatGPT, it needs no separate API key. When asked to prepare synthetic UKB input, run `ukb/sample_ukb_fields.py --rows 10000` (reusing its verified existing sample), then `ukb/make_ukb_subset.py --all-matching --diagnosis-prefix CODE` or `--diagnosis-code CODE`. For an E11 cohort, `--all-e11` remains available. Report the selected participant count and output path. Do not start the complete-file download when a 10,000-row sample meets the request.
+
+If the user names a diagnosis rather than providing a code, search ICD10 concept names in the user's local Athena `CONCEPT.csv`, show the candidate code or family and its description, and let the user choose the intended scope. Never silently substitute ICD10CM or guess a code from the name. Use the selected code/prefix for both subsetting and `general_agent.py` inspection; the source subset and mapping filter are separate operations.
+
+Present Athena mapping candidates with their concept IDs, names, domains, and source-code relationships. A user's explicit conversational approval of a specified source code and target concept is authorization to update that row in `mapping_review.csv`; validate the target against the candidate list or require documented `local_reviewed` evidence. Record the user's stated evidence and preserve all other rows. Do not turn a model recommendation alone into an approval. Then run apply, QC, and graphical QC on the reviewed file.

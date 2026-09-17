@@ -29,6 +29,17 @@ The sampler takes the first 10,000 records from each relevant field-group file a
 
 The result is `ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv` plus a `manifest.json`. The TSV has one row per selected EID and retains available instances and arrays for the seven fields. It is source data, **not yet OMOP**. Later, `general_agent.py --diagnosis-prefix E11` selects only E11-family diagnosis events for OMOP review and mapping; that flag does not change who is in the TSV.
 
+For a different diagnosis, select participants by exact ICD-10 code or family prefix. For example, to include every participant with a `J45` family code in the 10,000-row sample:
+
+```bash
+python3 ukb_omop_agent/ukb/make_ukb_subset.py \
+  --input ukb_omop_agent/ukb/data/ukb_sampled \
+  --output ukb_omop_agent/ukb/data/ukb_j45_pilot \
+  --all-matching --diagnosis-prefix J45
+```
+
+`--diagnosis-code J450` selects only that exact code; codes may include a decimal point. Repeat either filter to combine selections. Without `--all-matching`, `--cases` and `--participants` produce a diagnosis-enriched sample; without diagnosis filters, the historical E11 default applies. The manifest records the actual filters and counts. When mapping the result, pass the same diagnosis filter to `general_agent.py inspect`, `apply`, and `qc`. A diagnosis name must first be resolved to the intended ICD-10 code or family using Athena; the subset script does not guess codes from names.
+
 ## Download complete field-group files instead
 
 If you need the complete synthetic field-group files, first inspect the download plan, then download and verify the published MD5 checksums:

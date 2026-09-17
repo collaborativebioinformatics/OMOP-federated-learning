@@ -76,22 +76,25 @@ def rows_from(path):
                 yield row
 
 
-def has_type_2_diabetes(row, indices):
+def normalize_code(code):
+    return code.strip().upper().replace(".", "")
+
+
+def has_matching_diagnosis(row, indices, codes, prefixes):
     for index in indices:
         if index >= len(row):
             continue
-        # UKB field 41270 contains ICD-10 codes; E11 and its subcodes
-        # indicate type 2 diabetes. The exact OMOP mapping is a later step.
-        code = row[index].strip().upper().replace(".", "")
-        if code.startswith("E11"):
+        code = normalize_code(row[index])
+        if code and (code in codes or any(code.startswith(prefix) for prefix in prefixes)):
             return True
     return False
 
 
-def choose_eids(indexed, participant_count, case_target, all_e11=False):
+def choose_eids(indexed, participant_count, case_target, all_matching=False,
+                codes=(), prefixes=("E11",)):
     selected = []
     selected_set = set()
-    if case_target or all_e11:
+    if case_target or all_matching:
         for path, columns in indexed:
             diagnosis_indices = [
                 index for index, name in columns
@@ -101,22 +104,24 @@ def choose_eids(indexed, participant_count, case_target, all_e11=False):
                 continue
             for row in rows_from(path):
                 eid = row[0].strip()
-                if eid and eid not in selected_set and has_type_2_diabetes(row, diagnosis_indices):
+                if eid and eid not in selected_set and has_matching_diagnosis(
+                    row, diagnosis_indices, codes, prefixes
+                ):
                     selected.append(eid)
                     selected_set.add(eid)
-                    if not all_e11 and len(selected) >= case_target:
+                    if not all_matching and len(selected) >= case_target:
                         break
-            if not all_e11 and len(selected) >= case_target:
+            if not all_matching and len(selected) >= case_target:
                 break
     case_count = len(selected)
-    if all_e11:
+    if all_matching:
         if not selected:
-            raise ValueError("No E11-positive participants found in the supplied files")
+            raise ValueError("No participants match the selected diagnosis codes in the supplied files")
         return selected, case_count
     if case_target == participant_count and case_count < case_target:
         raise ValueError(
-            f"Only {case_count} E11-positive participants found; need {case_target}. "
-            "Sample more UKB rows before building an E11-only cohort."
+            f"Only {case_count} matching participants found; need {case_target}. "
+            "Sample more UKB rows before building a diagnosis-only cohort."
         )
     if len(selected) == participant_count:
         return selected, case_count
@@ -139,9 +144,21 @@ def column_order(name):
     return (FIELDS.index(int(match.group(1))), int(match.group(2)), int(match.group(3)))
 
 
-def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=False):
+def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=False,
+                all_matching=False, diagnosis_codes=(), diagnosis_prefixes=()):
+    if all_e11 and (all_matching or diagnosis_codes or diagnosis_prefixes):
+        raise ValueError("Use --all-e11 alone, or --all-matching with diagnosis filters")
+    codes = tuple(normalize_code(code) for code in diagnosis_codes)
+    prefixes = tuple(normalize_code(prefix) for prefix in diagnosis_prefixes)
+    if not codes and not prefixes:
+        prefixes = ("E11",)
+    for code in (*codes, *prefixes):
+        if not re.fullmatch(r"[A-Z][A-Z0-9]{1,7}", code):
+            raise ValueError(f"Invalid ICD-10 code or prefix: {code!r}")
+    select_all = all_e11 or all_matching
     indexed = index_files(source_dir)
-    selected, case_count = choose_eids(indexed, participant_count, case_target, all_e11)
+    selected, case_count = choose_eids(indexed, participant_count, case_target,
+                                       select_all, codes, prefixes)
     selected_set = set(selected)
     columns = sorted(
         (name for _, file_columns in indexed for _, name in file_columns),
@@ -178,8 +195,10 @@ def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=
     manifest = {
         "purpose": "UKB synthetic source subset for testing the four-table OMOP data contract",
         "participants": len(selected),
-        "e11_positive_participants_selected": case_count,
-        "selection": "all E11-positive participants" if all_e11 else "E11-enriched participant sample",
+        "matching_diagnosis_participants_selected": case_count,
+        "diagnosis_codes": list(codes),
+        "diagnosis_prefixes": list(prefixes),
+        "selection": "all matching participants" if select_all else "diagnosis-enriched participant sample",
         "field_ids": list(FIELDS),
         "source_files": source_files,
         "columns": columns,
@@ -195,13 +214,20 @@ def main():
     parser.add_argument("--input", type=Path, required=True, help="Directory of UKB synthetic tabular TSVs")
     parser.add_argument("--output", type=Path, default=Path("data/ukb_pilot"))
     parser.add_argument("--participants", type=int, default=200)
-    parser.add_argument("--cases", type=int, default=20, help="Target E11-positive participants")
+    parser.add_argument("--cases", type=int, default=20, help="Target diagnosis-positive participants")
     parser.add_argument("--all-e11", action="store_true", help="Select every E11-positive EID in the input, without filling with other EIDs")
+    parser.add_argument("--all-matching", action="store_true", help="Select every EID matching the diagnosis filters")
+    parser.add_argument("--diagnosis-code", action="append", default=[], help="Exact ICD-10 code; repeatable")
+    parser.add_argument("--diagnosis-prefix", action="append", default=[], help="ICD-10 family prefix; repeatable")
     args = parser.parse_args()
-    if not args.all_e11 and (args.participants < 1 or not 0 <= args.cases <= args.participants):
+    if args.all_e11 and (args.all_matching or args.diagnosis_code or args.diagnosis_prefix):
+        parser.error("Use --all-e11 alone, or --all-matching with diagnosis filters")
+    if not (args.all_e11 or args.all_matching) and (args.participants < 1 or not 0 <= args.cases <= args.participants):
         parser.error("Require participants >= 1 and 0 <= cases <= participants")
     print(json.dumps(
-        make_subset(args.input, args.output, args.participants, args.cases, args.all_e11), indent=2
+        make_subset(args.input, args.output, args.participants, args.cases,
+                    args.all_e11, args.all_matching, args.diagnosis_code,
+                    args.diagnosis_prefix), indent=2
     ))
 
 
