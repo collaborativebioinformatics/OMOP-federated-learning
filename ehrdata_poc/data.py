@@ -35,12 +35,9 @@ def design_matrix(edata: EHRData) -> np.ndarray:
     Leading gaps have nothing to carry forward, so they fall back to the variable's population median.
     """
     X = np.asarray(edata.X, dtype=np.float32)
-    filled = _forward_fill(X)
-    medians = np.nanmedian(filled.reshape(-1, X.shape[1] * X.shape[2]), axis=0)
-    idx = np.where(np.isnan(filled.reshape(len(X), -1)))
-    flat = filled.reshape(len(X), -1).copy()
-    flat[idx] = np.nan_to_num(medians[idx[1]], nan=0.0)
-    return flat
+    flat = _forward_fill(X).reshape(len(X), -1)
+    medians = np.nan_to_num(np.nanmedian(flat, axis=0), nan=0.0)
+    return np.where(np.isnan(flat), medians, flat)
 
 
 def _forward_fill(X: np.ndarray) -> np.ndarray:

@@ -1,3 +1,20 @@
+[project]
+name = "ehrdata-poc"
+version = "0.1.0"
+description = "Federated learning on ICU time series with ehrdata, ehrapy and NVFlare"
+requires-python = ">=3.12"
+dependencies = [
+    "ehrdata>=0.4.0",
+    "ehrapy>=0.15.0",
+    "nvflare>=2.9.0",
+    "torch>=2.12.0",
+    "numpy>=2.5.0",
+    "pandas>=2.3.0",
+    "scikit-learn>=1.9.0",
+    "matplotlib>=3.11.0",
+    "ipykernel>=7.3.0",
+]
+
 [tool.ruff]
 line-length = 120
 

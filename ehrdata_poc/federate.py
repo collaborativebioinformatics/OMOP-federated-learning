@@ -1,3 +1,8 @@
+"""Run FedAvg with one client per shard, named after the site that produced it.
+
+``set_per_site_config`` points each client at its own shard, so only weights ever leave a site.
+"""
+
 from pathlib import Path
 
 import numpy as np

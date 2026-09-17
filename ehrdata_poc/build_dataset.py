@@ -1,3 +1,9 @@
+"""Write the cohort tensor to ``hourly.h5ed`` and one shard per site to ``data/shards``.
+
+A site is the ICU the patient was admitted to, and each shard becomes one NVFlare client.
+Shards carry ``rows_train``/``rows_test`` so predictions can be mapped back onto the cohort tensor.
+"""
+
 from pathlib import Path
 
 import ehrdata as ed
