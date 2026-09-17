@@ -35,42 +35,42 @@ flowchart TB
     class J out
 ```
 
-## Programming language
+**Subproject 1** gets any biobank dataset into OMOP.
+**Subproject 2** runs federated learning over the result.
+The diagram above is the plan; `plan.md` has the schedule.
 
-Python is the preferred language for code in this repo.
+## Layout
 
-## Subproject 1: An automated way of getting biobank data into OMOP 
+| path | what |
+| --- | --- |
+| `src/omopflare` | the library: OMOP feature extraction for federated learning ([README](src/omopflare/README.md)) |
+| `examples/omop_t2dm` | federated T2DM risk over any cohort's sites |
+| `examples/` | NVFlare hello-world samples and earlier demos |
+| `synthea_cohorts` | the cohorts, one folder per generation method |
+| `contract` | the OMOP table contract the two subprojects hand over on |
 
-### Goal
+## Quickstart
 
-Come up with a skill or framework/tool to get ANY biobank dataset into OMOP.
+```bash
+pip install -e .
+python examples/omop_t2dm/run.py --sites synthea_cohorts/cohort_2/data/omop
+```
 
-### Milestones
+```python
+import omopflare as of
 
-- Agree on the minimal required tables & information of any biobanks for both datasets.
-- Find ±2 datasets that have already been transferred to OMOP such as the UK Biobank.
-- Write a skill or framework POC that recreates the existing conversions on its own to reproduce the conversion. This serves as our primary evaluation.
-- Find ±3 datasets that are not yet in OMOP. Transform these into OMOP. They will serve as the eventual input for sub project 2.
+spec = of.FeatureSpec(
+    features=(of.Feature("bmi", 3038553, "measurement", unit_concept_id=9531, plausible_range=(10.0, 80.0)),),
+    vocabulary_version="v5.0 31-AUG-24",
+    lookback_days=365,
+)
+site = of.OmopSource("/data/omop/site_a")
+of.validate(site, spec, strict=True)
+person_ids, X = of.design_matrix(site, spec, "select person_id, current_date as index_date from person")
+```
 
-## Subproject 2: A proof of concept of federated learning applied to OMOP datasets
+A full NVFlare job is in [src/omopflare/README.md](src/omopflare/README.md).
 
-### Goal
+## Members
 
-Implement a federated learning POC for OMOP data. Might require a new dataloader.
-
-### Milestones
-
-- Learn NVFlare as our federated learning tool
-- Visualize & explore existing OMOP datasets. Try to understand how to best apply federated learning to them.
-- Implement a custom dataloader for federated learning and apply it to a simple linear model. The accuracy or scientific outcome doesn't matter.
-- Create a pipeline that brings together subproject 1 & 2
-
-### Members 
-- charles
-- solvi
-- lukas
-- maria
-- max
-- nik
-- mia
-- kev
+charles, solvi, lukas, maria, max, nik, mia, kev

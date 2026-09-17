@@ -20,22 +20,34 @@ class Finding:
         return f"[{self.level}] {self.check}: {self.detail}"
 
 
-def validate(source: OmopSource, spec: FeatureSpec, *, max_unmapped: float = 0.05) -> list[Finding]:
+def validate(
+    source: OmopSource,
+    spec: FeatureSpec,
+    *,
+    max_unmapped: float = 0.05,
+    strict: bool = False,
+) -> list[Finding]:
     """Compare one site against the spec it is about to extract with.
 
     Args:
         source: The site to check.
         spec: The frozen feature schema.
         max_unmapped: Largest tolerated fraction of rows with ``concept_id = 0``.
+        strict: Raise instead of returning when any finding is an error.
 
     Returns:
         Findings, where an ``error`` means the site's contribution would be wrong rather than noisy.
+
+    Raises:
+        ValueError: If ``strict`` and any finding is an error.
     """
     findings: list[Finding] = []
     findings += _check_vocabulary(source, spec)
     findings += _check_concepts(source, spec)
     findings += _check_unmapped(source, spec, max_unmapped)
     findings += _check_units(source, spec)
+    if strict and (failures := errors(findings)):
+        raise ValueError("\n".join(str(f) for f in failures))
     return findings
 
 

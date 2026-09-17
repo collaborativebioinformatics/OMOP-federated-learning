@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
 import pyarrow as pa
 import sparse
 
 from .source import OmopSource
+
+if TYPE_CHECKING:
+    import duckdb
 from .spec import CONCEPT_COLUMN, DATE_COLUMN, VALUE_COLUMN, Feature, FeatureSpec
 
 INDEX_TABLE = "omopflare_index"
 Layout = Literal["dense", "sparse", "auto"]
+Index = Union[str, pa.Table, "duckdb.DuckDBPyRelation"]
 
 
 def _numeric_case(feature: Feature, alias: str) -> str:
@@ -56,14 +60,27 @@ def _domain_query(source: OmopSource, spec: FeatureSpec, domain: str) -> str | N
     """.strip()
 
 
-def _lowercase(table: pa.Table) -> pa.Table:
-    return table.rename_columns([name.lower() for name in table.column_names])
+def as_table(source: OmopSource, index: Index) -> pa.Table:
+    """Accept an index as SQL, a duckdb relation or an Arrow table.
+
+    Args:
+        source: The site the SQL runs against.
+        index: A query string, a duckdb relation or an Arrow table.
+
+    Returns:
+        An Arrow table with lowercased column names.
+    """
+    if isinstance(index, str):
+        index = source.sql(index)
+    if hasattr(index, "arrow"):
+        index = index.arrow().read_all()
+    return index.rename_columns([name.lower() for name in index.column_names])
 
 
 def extract(
     source: OmopSource,
     spec: FeatureSpec,
-    index: pa.Table,
+    index: Index,
     *,
     batch_size: int = 50_000,
 ) -> Iterator[pa.RecordBatch]:
@@ -74,7 +91,7 @@ def extract(
     Args:
         source: The site to read from.
         spec: The frozen feature schema shared across the federation.
-        index: Table with a ``person_id`` column and an ``index_date`` column giving each patient's landmark.
+        index: SQL, a duckdb relation or an Arrow table with ``person_id`` and ``index_date`` columns.
         batch_size: Rows per yielded batch.
 
     Yields:
@@ -83,7 +100,7 @@ def extract(
     Raises:
         ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent from the site.
     """
-    index = _lowercase(index)
+    index = as_table(source, index)
     missing = {"person_id", "index_date"} - set(index.column_names)
     if missing:
         raise ValueError(f"index table is missing {sorted(missing)}")
@@ -181,3 +198,35 @@ def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool)
         shape=(len(person_ids), len(spec.features)),
         fill_value=0.0,
     )
+
+
+def design_matrix(
+    source: OmopSource,
+    spec: FeatureSpec,
+    index: Index,
+    *,
+    layout: Layout = "dense",
+) -> tuple[np.ndarray, np.ndarray | sparse.COO]:
+    """Extract a whole site into one matrix.
+
+    Args:
+        source: The site to read from.
+        spec: The frozen feature schema.
+        index: SQL, a duckdb relation or an Arrow table with ``person_id`` and ``index_date``.
+        layout: Passed to :func:`to_matrix`.
+
+    Returns:
+        The person IDs and the design matrix.
+
+    Raises:
+        ValueError: If the index selects nobody.
+    """
+    ids, blocks = [], []
+    for batch in extract(source, spec, index):
+        person_ids, matrix = to_matrix(batch, spec, layout=layout)
+        ids.append(person_ids)
+        blocks.append(matrix)
+    if not blocks:
+        raise ValueError("the index selected no people")
+    stacked = sparse.concatenate(blocks) if isinstance(blocks[0], sparse.COO) else np.vstack(blocks)
+    return np.concatenate(ids), stacked

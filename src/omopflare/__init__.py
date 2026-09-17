@@ -1,4 +1,4 @@
-from .features import extract, to_matrix
+from .features import design_matrix, extract, to_matrix
 from .loader import CohortDataset, StreamingCohort, dataloader, site_statistics
 from .propose import concept_counts, propose_spec
 from .sequence import extract_sequence, to_ehrdata
@@ -19,6 +19,7 @@ __all__ = [
     "combine",
     "concept_counts",
     "dataloader",
+    "design_matrix",
     "errors",
     "extract",
     "extract_sequence",
