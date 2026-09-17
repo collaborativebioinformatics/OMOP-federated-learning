@@ -1,6 +1,6 @@
 # Plan
 
-Three days, eight people, two subprojects. This is what we settled on Thursday morning.
+Three days, eight people, two subprojects. This is what we settled on wednesday.
 If something here is wrong, change it in the repo instead of in your head.
 
 The goal is one working minimal working path end to end.
@@ -40,22 +40,12 @@ Output format: one parquet file per table, one directory per site.
 
 Subproject 1, source to OMOP.
 
-1. **Source profiling.** What is actually in the Synthea CSVs: tables, fields, value
-   ranges, how often something is empty, how many distinct codes. White Rabbit produces
-   the scan report. Owner:
-2. **Structural mapping.** Which source field becomes which OMOP field. e.g. Rabbit-in-a-Hat
-   reads the scan report and exports a mapping specification. Owner:
-3. **Automated mapping proposal.** The model gets the scan report and proposes the
-   structural and code mappings on its own. 
-   Owner:
-4. **Vocabulary mapping and clinical sign-off.** Every distinct source code needs a
-   standard concept. e.g. Usagi proposes candidates by text similarity, a human decides.
-   Owner:
-5. **ETL code.** Reads the source, applies both mappings, writes the four tables.
-   Person ids, date handling, deriving observation_period. Owner:
-6. **Validation.** Row counts per table, share of records that end up on concept_id 0,
-   the ten most frequent unmapped codes. Ours against the reference, side by side.
-   Owner:
+charles working on the output data structure that subproject 2 is using.
+
+mia and mira working on QC and quality control for comparing our automatic omop to etl synthea.
+
+Nik and Max are working on ETL and Synthea data generation.
+
 
 Subproject 2, federated learning.
 
@@ -75,7 +65,7 @@ Thursday
 | 10:00 | Table set fixed and committed |
 | 11:00 | Fake data generator writes the four tables for two sites. Subproject 2 is now independent of subproject 1 |
 | 12:00 | ETL-Synthea runs end to end on 100 patients |
-| 13:30 | Writers meeting |
+| 13:30 | Writers meeting | Mira volunteered to be writer
 | 14:00 | Mid-term slides done |
 | 14:30 | Mid-term presentation |
 | 17:00 | Linear model trains federated on the fake data |
