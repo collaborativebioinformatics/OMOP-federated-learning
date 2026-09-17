@@ -5,13 +5,28 @@ A small end-to-end demo: an ICU cohort is loaded as EHRData, explored with ehrap
 ## Pipeline
 
 ```bash
+<<<<<<< HEAD
 python prepare.py     # PhysioNet 2012 -> EHRData -> per-site shards + hourly.h5ed
 python federate.py    # NVFlare FedAvg across the four ICUs
+=======
+python run.py             # build_dataset.py, then federate.py
+```
+
+Or step by step:
+
+```bash
+python build_dataset.py   # PhysioNet 2012 -> EHRData -> per-site shards + hourly.h5ed
+python federate.py        # NVFlare FedAvg across the four ICUs
+>>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 ```
 
 Then work through the notebooks on the `Python (nvflare)` kernel, in order.
 
+<<<<<<< HEAD
 `01_explore.ipynb` explores the cohort with ehrapy and writes back the UMAP embedding, tensor intact.
+=======
+`01_explore.ipynb` explores the cohort with ehrapy and writes the object back to `hourly.h5ed` with the UMAP embedding, tensor intact.
+>>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 `02_federated_results.ipynb` compares the federated model against local-only and centralized baselines and projects its risk scores onto that embedding.
 
 `data.py`, `model.py` and `training.py` are shared by the scripts and the notebooks.
@@ -63,6 +78,7 @@ Federation beats every site's own local model on its own patients, which is the 
 
 Training seeds are not pinned, so the numbers move slightly between runs while the ordering holds.
 
+<<<<<<< HEAD
 ## Why not OMOP
 
 This started on GiBleed (OHDSI Eunomia, CDM 5.3) loaded through `ehrdata.io.omop`, which worked but could not support the analysis.
@@ -100,6 +116,9 @@ Only `ep.tl.rank_features_groups` and the euclidean `pca`/`neighbors` path are 2
 `ep.pp.qc_metrics` and `neighbors(metric="dtw")` operate on the 3D tensor directly.
 
 ### NVFlare
+=======
+## NVFlare
+>>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 
 `federate.py` uses the 2.9 Recipe API (`FedAvgRecipe` + `SimEnv` + `set_per_site_config`) rather than the older `FedAvgJob` + `ScriptRunner` + `simulator_run`.
 The recipe takes `model=` and `min_clients=` where the job takes `initial_model=` and `n_clients=`.
@@ -114,12 +133,15 @@ The server reconstructs the initial model through `FedJobConfig._get_args`, whic
 `SimEnv` nests its output under `{workspace_root}/{recipe name}/server/simulate_job/app_server/`, which is where `best_FL_global_model.pt` lands.
 The per-round server log is one level up, at `{workspace_root}/{recipe name}/server/log.txt`.
 
+<<<<<<< HEAD
 ### ehrdata
 
 The OMOP path hit a round-trip bug: `ed.io.write_h5ed` cannot write what `ed.io.omop.setup_obs` produces, because of datetime64 and all-null object columns.
 Reported as [theislab/ehrdata#303](https://github.com/theislab/ehrdata/issues/303).
 Nothing in this repo works around it any more, since `physionet2012` returns an EHRData that writes cleanly.
 
+=======
+>>>>>>> 6ba7973bc62ef21f76e776be04885809a37155e3
 ## Development
 
 `ruff check .` and `ruff format .` are configured in `pyproject.toml` at line length 120, and cover the notebooks as well as the modules.
