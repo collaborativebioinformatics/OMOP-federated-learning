@@ -118,4 +118,4 @@ cython_debug/
 .idea/
 
 # Large reproducible Synthea exports; keep compact cohort tables tracked.
-synthea_cohort/data/source/
+synthea_cohorts/*/data/source/

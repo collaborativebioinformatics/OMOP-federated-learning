@@ -31,9 +31,9 @@ From a Synthea checkout (Java 17+):
 ## Build the tables
 
 ```bash
-python3 synthea_cohort/build_cohort.py \
+python3 synthea_cohorts/cohort_1/build_cohort.py \
   --input /path/to/synthea/output/csv \
-  --output synthea_cohort/output \
+  --output synthea_cohorts/cohort_1/output \
   --study-end 2026-12-31 \
   --window-days 365
 ```
@@ -49,9 +49,9 @@ belong to a particular vocabulary release, so for reproducible work export
 `CONCEPT.csv` from your licensed OHDSI Athena vocabulary bundle and pass it in:
 
 ```bash
-python3 synthea_cohort/build_cohort.py \
+python3 synthea_cohorts/cohort_1/build_cohort.py \
   --input /path/to/synthea/output/csv \
-  --output synthea_cohort/output \
+  --output synthea_cohorts/cohort_1/output \
   --study-end 2026-12-31 \
   --omop-concepts /path/to/athena/CONCEPT.csv
 ```
@@ -69,10 +69,10 @@ The complete Synthea export is intentionally ignored because `observations.csv` 
 345 MB. Create a reproducible, cohort-specific source archive with:
 
 ```bash
-python3 synthea_cohort/compact_source.py
+python3 synthea_cohorts/cohort_1/compact_source.py
 ```
 
-This writes tracked-size gzip files to `synthea_cohort/data/source_compact/`. They retain the original
+This writes tracked-size gzip files to `synthea_cohorts/cohort_1/data/source_compact/`. They retain the original
 Synthea columns and row order, but contain only cohort patients, type-2-diabetes conditions, and the
 numeric configured biomarkers inside the ±365-day diagnosis window.
 
@@ -80,10 +80,10 @@ To reconstruct ordinary CSV inputs and rebuild the cohort:
 
 ```bash
 mkdir -p /tmp/synthea-compact
-gzip -dc synthea_cohort/data/source_compact/patients.csv.gz > /tmp/synthea-compact/patients.csv
-gzip -dc synthea_cohort/data/source_compact/conditions.csv.gz > /tmp/synthea-compact/conditions.csv
-gzip -dc synthea_cohort/data/source_compact/observations.csv.gz > /tmp/synthea-compact/observations.csv
-python3 synthea_cohort/build_cohort.py \
+gzip -dc synthea_cohorts/cohort_1/data/source_compact/patients.csv.gz > /tmp/synthea-compact/patients.csv
+gzip -dc synthea_cohorts/cohort_1/data/source_compact/conditions.csv.gz > /tmp/synthea-compact/conditions.csv
+gzip -dc synthea_cohorts/cohort_1/data/source_compact/observations.csv.gz > /tmp/synthea-compact/observations.csv
+python3 synthea_cohorts/cohort_1/build_cohort.py \
   --input /tmp/synthea-compact --output /tmp/rebuilt-cohort \
   --study-end 2026-09-17 --window-days 365
 ```
