@@ -43,14 +43,13 @@ Subproject 1, source to OMOP.
 1. **Source profiling.** What is actually in the Synthea CSVs: tables, fields, value
    ranges, how often something is empty, how many distinct codes. White Rabbit produces
    the scan report. Owner:
-2. **Structural mapping.** Which source field becomes which OMOP field. Rabbit-in-a-Hat
+2. **Structural mapping.** Which source field becomes which OMOP field. e.g. Rabbit-in-a-Hat
    reads the scan report and exports a mapping specification. Owner:
 3. **Automated mapping proposal.** The model gets the scan report and proposes the
-   structural and code mappings on its own. This is the part that makes the project
-   interesting, and it gets measured against the same reference as everything else.
+   structural and code mappings on its own. 
    Owner:
 4. **Vocabulary mapping and clinical sign-off.** Every distinct source code needs a
-   standard concept. Usagi proposes candidates by text similarity, a human decides.
+   standard concept. e.g. Usagi proposes candidates by text similarity, a human decides.
    Owner:
 5. **ETL code.** Reads the source, applies both mappings, writes the four tables.
    Person ids, date handling, deriving observation_period. Owner:
