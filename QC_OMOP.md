@@ -9,7 +9,7 @@
 
 These sanity checks should ideally be comparisons between raw data, our OMOP conversions, and the Synthea OMOP conversion.
 
-## Can do these sanity checks with tools like: <br>
+## Tools to do QC/sanity checks in OMOP data: <br>
 ### Achilles <br>
 R package: OHDSI/Achilles <br>
 Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.) <br>
