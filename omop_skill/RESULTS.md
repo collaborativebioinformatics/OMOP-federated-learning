@@ -2,9 +2,9 @@
 
 State on 2026-09-17, branch `omop-skill-mvp`.
 
-Checked against revision 1 of `contract/data_contract.md`: observation period from encounters, BMI and systolic blood pressure.
-Revision 2 changed the contract after these tests: HbA1c as the outcome, race and ethnicity concepts, observation period from observation and condition dates, plausibility ranges.
-The skill does not support revision 2 yet.
+Two test series.
+Revision 1 of `contract/data_contract.md` on `cohort_2`, against the team's hand-written ETL (first sections).
+Revision 2 blind, on a fresh Synthea run, with the comparison against ETL-Synthea prepared but not run yet (section "Blind run").
 
 Raw Synthea data in, the four contract tables out, checked against the contract.
 On all five sites of `cohort_2` the output is identical to the tables the team wrote by hand, and `omopflare` from subproject 2 reads it without errors.
@@ -34,6 +34,33 @@ What the tests don't prove:
 - The reference is the team's own hand-written ETL, not OHDSI ETL-Synthea. A logic error there is reproduced here.
 - The compact source was filtered by the same team code. The full 3.9 GB export has not been run.
 
+## Blind run: fresh Synthea data, contract revision 2
+
+Raw data first, OMOP later.
+The mapping was written after the data existed, from the contract text and the profile only, without any existing OMOP output to copy from.
+
+| Step | Result |
+|---|---|
+| Synthea 3.3.0 | 1,162 patients (1,000 alive), Massachusetts, 2.1 GB |
+| Mapping | `mappings/synthea_3.3.0_contract_rev2.yaml` |
+| Conversion | 8 s: 1,162 persons, 1,162 observation periods, 151,219 measurements, 94 T2DM diagnoses |
+| Structure checks | Pass: columns, types, concept IDs, person links |
+| Plausibility check | Fails: 3,103 HbA1c values below 3 % in 87 persons, 99 systolic values below 60 in 9 adults |
+| Site split | site_a 387, site_b 388, site_c 387 persons |
+| Comparison with ETL-Synthea | `scripts/compare_reference.py` ready and self-tested: an identical copy passes, four planted changes are all found. Reference not built yet. |
+
+The raw data comes from:
+
+```bash
+java -jar synthea-3.3.0.jar -s 20260917 -cs 20260917 -r 20260917 -e 20260917 -p 1000 --exporter.csv.export=true --exporter.fhir.export=false --exporter.years_of_history=0 Massachusetts
+```
+
+Findings:
+
+- Synthea's HbA1c runs low: median 3.9 %, 5th percentile 2.8 %, also for patients with type 2 diabetes. The plausibility failure comes from the data, the ETL copies the values. HbA1c as the target needs a second look.
+- Rerunning the command gives the same rows in a different order. `person_id` follows file order, so the `person_id % 3` split moves patients between sites across reruns. Numbering patients sorted by `Id` would fix that.
+- The contract doesn't say which remainder goes to which site. `split_sites.py` uses 0 for site_a.
+
 ## How it differs from the hand-written ETL
 
 | | Hand-written ETL (`build_datasets.py`) | omop_skill |
@@ -60,7 +87,7 @@ The skill pays off from the second source on, and as a check anyone can run on a
 
 ## What it can't do yet
 
-- Generate a mapping on its own. The Synthea mapping was written to match `build.py`, not derived from the profile alone. Claude has not written a mapping for a new source yet.
+- Prove it works on a source other than Synthea. The revision 2 mapping was written blind from contract and profile, but the source was Synthea again.
 - Look up concepts. Only the 9 concept IDs of the contract are known, nothing is checked against Athena.
 - Cover more than 4 tables and 3 source codes: BMI, systolic blood pressure, type 2 diabetes. Race and ethnicity are always 0.
 - Produce a full OMOP database: no vocabulary tables, visits, drugs or procedures.

@@ -36,12 +36,17 @@ Existing software does the heavy lifting. DuckDB profiles the source and runs th
 3. **Run the mapping for every site.**
    `python omop_skill/scripts/run_mapping.py --mapping <mapping.yaml> --source <site_csv_dir> --out <output_dir>/<site>`
 
-4. **Validate every site.**
+4. **Validate.**
    `python omop_skill/scripts/validate_contract.py <output_dir>/<site>`
-   If a trusted output for the same raw data exists, for example `synthea_cohorts/cohort_2/data/omop/<site>`, add `--reference <that_dir>`.
+   `contract.yaml` is the current contract (revision 2). For revision 1 data such as `cohort_2`, add `--contract omop_skill/contract_rev1.yaml`.
+   If a trusted output with the same IDs exists, for example `synthea_cohorts/cohort_2/data/omop/<site>`, add `--reference <that_dir>`.
 
-5. **Fix and repeat.** If validation fails, fix the mapping and rerun steps 3 and 4. Stop after three attempts and report what still fails.
+5. **Split and compare, when the contract asks for it.**
+   - One run into sites: `python omop_skill/scripts/split_sites.py <output_dir>/all <output_dir>`
+   - Against a reference conversion of the same raw data, such as ETL-Synthea: `python omop_skill/scripts/compare_reference.py <output_dir>/all <reference_dir>/all`. Persons are joined on `person_source_value`, so the IDs may differ.
 
-6. **Report** per site: row counts per table, the validation result, and source codes from the profile that the mapping leaves out.
+6. **Fix and repeat.** If a check fails because of the mapping, fix the mapping and rerun steps 3 to 5. Stop after three attempts and report what still fails. If it fails because of the data, for example implausible values in the source, report it instead of bending the mapping.
+
+7. **Report** per site: row counts per table, the validation result, and source codes from the profile that the mapping leaves out.
 
 A person reviews every new mapping before its output replaces data that subproject 2 uses.

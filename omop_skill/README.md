@@ -8,6 +8,10 @@ A Claude skill plus three scripts. Converts raw source CSVs into the four OMOP t
 | Write the mapping | Claude, following the skill | `mappings/<source>.yaml` |
 | Run the mapping | DuckDB | `scripts/run_mapping.py` |
 | Check the output | pandas, against `contract.yaml` | `scripts/validate_contract.py` |
+| Split one run into sites | DuckDB | `scripts/split_sites.py` |
+| Compare with a reference ETL | DuckDB, contract section 8 | `scripts/compare_reference.py` |
+
+`contract.yaml` is revision 2 of the data contract. `contract_rev1.yaml` is revision 1, which `cohort_2` follows.
 
 The skill itself lives in `.claude/skills/omop-etl/SKILL.md`, so Claude Code picks it up when you open the repo.
 
