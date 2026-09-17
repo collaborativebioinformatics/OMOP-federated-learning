@@ -65,7 +65,7 @@ Thursday
 | 10:00 | Table set fixed and committed |
 | 11:00 | Fake data generator writes the four tables for two sites. Subproject 2 is now independent of subproject 1 |
 | 12:00 | ETL-Synthea runs end to end on 100 patients |
-| 13:30 | Writers meeting | Mira volunteered to be writer
+| 13:30 | Writers meeting -  Mira volunteered to be writer|
 | 14:00 | Mid-term slides done |
 | 14:30 | Mid-term presentation |
 | 17:00 | Linear model trains federated on the fake data |
