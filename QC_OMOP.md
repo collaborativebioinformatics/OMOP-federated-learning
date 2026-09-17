@@ -2,7 +2,7 @@
 
 1. missingness (missing values)
 2. all tables present
-3. check the format and logic of the data variables (ensure index date before end dates)
+3. check the format and logic of the date variables (ensure index date before end dates)
 4. check for fraction of successful OMOP conversions
 5. compare summary statistics of variables
 
