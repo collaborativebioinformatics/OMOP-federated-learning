@@ -27,7 +27,7 @@ tables:
     from: demographics
     columns:
       person_id: row_number() OVER (ORDER BY CAST(eid AS BIGINT))
-      gender_concept_id: coalesce(omop_concept('gender', "31-0.0"), 0)
+      gender_concept_id: omop_concept('gender', "31-0.0")
       year_of_birth: CAST("34-0.0" AS INTEGER)
       race_concept_id: 0
       ethnicity_concept_id: 0
@@ -129,18 +129,28 @@ tables:
       condition_source_value: src.code
 
   observation_period:
-    # Spans every dated measurement and condition event already produced for a person, so this
-    # table is built last and reads from the omop_measurement / omop_condition_occurrence tables.
+    # Spans every date UKB records for the person, including diagnoses outside the pilot's concept
+    # scope. Deriving it from omop_condition_occurrence instead would end most people's period on
+    # their assessment day, because only E11 codes are mapped, and a study landmarked after the
+    # assessment would then keep only the people who have diabetes.
     from: >
       (
-        SELECT person_id, measurement_date AS event_date FROM omop_measurement
+        SELECT p.person_id, v.value AS event_date
+        FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '53-')) FROM visits)
+              ON COLUMNS(c -> starts_with(c, '53-')) INTO NAME colname VALUE value) v
+        JOIN omop_person p ON p.person_source_value = v.eid
+        WHERE v.value IS NOT NULL AND v.value <> ''
         UNION ALL
-        SELECT person_id, condition_start_date AS event_date FROM omop_condition_occurrence
+        SELECT p.person_id, d.value AS event_date
+        FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '41280-')) FROM diagnosis_dates)
+              ON COLUMNS(c -> starts_with(c, '41280-')) INTO NAME colname VALUE value) d
+        JOIN omop_person p ON p.person_source_value = d.eid
+        WHERE d.value IS NOT NULL AND d.value <> ''
       ) e
     group_by: e.person_id
     columns:
       observation_period_id: row_number() OVER (ORDER BY e.person_id)
       person_id: e.person_id
-      observation_period_start_date: min(e.event_date)
-      observation_period_end_date: max(e.event_date)
+      observation_period_start_date: omop_date(min(e.event_date))
+      observation_period_end_date: omop_date(max(e.event_date))
       period_type_concept_id: 32817

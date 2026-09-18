@@ -146,3 +146,7 @@ examples/mimic_mortality/spec.json
 examples/.scale/
 examples/scale_federated/workspace/
 examples/scale_federated/spec.json
+examples/ukb_diabetes/data/
+examples/ukb_diabetes/workspace/
+examples/ukb_diabetes/spec*.json
+ukb_omop_agent/ukb/data/
