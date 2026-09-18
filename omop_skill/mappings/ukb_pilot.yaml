@@ -1,0 +1,146 @@
+# UK Biobank wide-format extract -> OMOP tables of contract/data_contract.md (version 2026-09-17).
+# Mirrors the pilot scope of ukb_omop_agent/ukb/map_ukb_to_omop.py: sex, year of birth, BMI,
+# systolic blood pressure, and type 2 diabetes (ICD-10 E11.*) rolled up to one SNOMED concept.
+#
+# UKB source columns are named "<field id>-<instance>.<array>" (Showcase field, visit instance,
+# repeat index). Each raw file already holds all_varchar columns plus a src_row column, so every
+# table entry below unpivots the wide field columns into long (eid, instance[, array], value) rows
+# with DuckDB's UNPIVOT ... ON COLUMNS(lambda), then joins them back to person and to the paired
+# visit date (field 53) or diagnosis date (field 41280).
+source: ukb-wide-extract
+
+files:
+  demographics: integer_no_arrays.csv    # fields 31 (sex), 34 (year of birth)
+  visits: datetime_fields.csv            # field 53 (date of assessment centre visit)
+  bmi: real_fields1.csv                  # field 21001 (body mass index)
+  sbp: integer_arrays_part1.csv          # field 4080 (systolic blood pressure, automated reading)
+  diagnoses: string_fields2.csv          # field 41270 (diagnoses ICD10)
+  diagnosis_dates: 41280_HES_SimDates.csv  # field 41280 (date of first in-patient diagnosis ICD10)
+
+concept_maps:
+  gender:
+    "0": 8532  # UKB field 31: Female
+    "1": 8507  # UKB field 31: Male
+
+tables:
+  person:
+    from: demographics
+    columns:
+      person_id: row_number() OVER (ORDER BY CAST(eid AS BIGINT))
+      gender_concept_id: coalesce(omop_concept('gender', "31-0.0"), 0)
+      year_of_birth: CAST("34-0.0" AS INTEGER)
+      race_concept_id: 0
+      ethnicity_concept_id: 0
+      person_source_value: eid
+
+  measurement:
+    # BMI (21001) and systolic BP (4080) are each recorded once per assessment instance (BP has two
+    # automated readings per instance). Both are unpivoted to (eid, instance, value) and joined to
+    # the assessment date recorded for that same instance under field 53.
+    from: >
+      (
+        WITH bmi_long AS (
+          SELECT eid, colname,
+                 regexp_extract(colname, '^21001-(\d+)\.', 1)::INT AS instance,
+                 value
+          FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '21001-')) FROM bmi)
+                ON COLUMNS(c -> starts_with(c, '21001-')) INTO NAME colname VALUE value)
+          WHERE value IS NOT NULL AND value <> ''
+        ),
+        sbp_long AS (
+          SELECT eid, colname,
+                 regexp_extract(colname, '^4080-(\d+)\.', 1)::INT AS instance,
+                 value
+          FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '4080-')) FROM sbp)
+                ON COLUMNS(c -> starts_with(c, '4080-')) INTO NAME colname VALUE value)
+          WHERE value IS NOT NULL AND value <> ''
+        ),
+        visit_long AS (
+          SELECT eid,
+                 regexp_extract(colname, '^53-(\d+)\.', 1)::INT AS instance,
+                 value AS visit_date
+          FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '53-')) FROM visits)
+                ON COLUMNS(c -> starts_with(c, '53-')) INTO NAME colname VALUE value)
+          WHERE value IS NOT NULL AND value <> ''
+        ),
+        events AS (
+          SELECT eid, colname, instance, value,
+                 '21001' AS field_id, 3038553 AS measurement_concept_id, 9531 AS unit_concept_id
+          FROM bmi_long
+          UNION ALL
+          SELECT eid, colname, instance, value,
+                 '4080' AS field_id, 3004249 AS measurement_concept_id, 8876 AS unit_concept_id
+          FROM sbp_long
+        )
+        SELECT p.person_id, e.colname, e.field_id, e.value, e.measurement_concept_id,
+               e.unit_concept_id, v.visit_date
+        FROM events e
+        JOIN omop_person p ON p.person_source_value = e.eid
+        JOIN visit_long v ON v.eid = e.eid AND v.instance = e.instance
+      ) src
+    where: TRY_CAST(src.value AS DOUBLE) IS NOT NULL
+    columns:
+      measurement_id: row_number() OVER (ORDER BY src.person_id, src.field_id, src.colname)
+      person_id: src.person_id
+      measurement_concept_id: src.measurement_concept_id
+      measurement_date: omop_date(src.visit_date)
+      measurement_type_concept_id: 32817
+      value_as_number: TRY_CAST(src.value AS DOUBLE)
+      unit_concept_id: src.unit_concept_id
+      measurement_source_value: src.field_id
+
+  condition_occurrence:
+    # Field 41270 (ICD-10 diagnosis) is paired with field 41280 (date of first diagnosis) by the
+    # same instance.array position. Pilot scope: only E11.* (type 2 diabetes) rolls up to the
+    # single standard concept 201826; every other ICD-10 code is out of scope and left out here
+    # (see the report for unmapped code counts).
+    from: >
+      (
+        WITH diag_long AS (
+          SELECT eid,
+                 regexp_extract(colname, '^41270-(\d+)\.(\d+)$', 1)::INT AS instance,
+                 regexp_extract(colname, '^41270-(\d+)\.(\d+)$', 2)::INT AS arr,
+                 value AS code
+          FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '41270-')) FROM diagnoses)
+                ON COLUMNS(c -> starts_with(c, '41270-')) INTO NAME colname VALUE value)
+          WHERE value IS NOT NULL AND value <> ''
+        ),
+        date_long AS (
+          SELECT eid,
+                 regexp_extract(colname, '^41280-(\d+)\.(\d+)$', 1)::INT AS instance,
+                 regexp_extract(colname, '^41280-(\d+)\.(\d+)$', 2)::INT AS arr,
+                 value AS date_value
+          FROM (UNPIVOT (SELECT eid, COLUMNS(c -> starts_with(c, '41280-')) FROM diagnosis_dates)
+                ON COLUMNS(c -> starts_with(c, '41280-')) INTO NAME colname VALUE value)
+          WHERE value IS NOT NULL AND value <> ''
+        )
+        SELECT p.person_id, d.code, dt.date_value
+        FROM diag_long d
+        JOIN omop_person p ON p.person_source_value = d.eid
+        JOIN date_long dt ON dt.eid = d.eid AND dt.instance = d.instance AND dt.arr = d.arr
+        WHERE regexp_matches(upper(replace(d.code, '.', '')), '^E11')
+      ) src
+    columns:
+      condition_occurrence_id: row_number() OVER (ORDER BY src.person_id, src.date_value, src.code)
+      person_id: src.person_id
+      condition_concept_id: 201826
+      condition_start_date: omop_date(src.date_value)
+      condition_type_concept_id: 32817
+      condition_source_value: src.code
+
+  observation_period:
+    # Spans every dated measurement and condition event already produced for a person, so this
+    # table is built last and reads from the omop_measurement / omop_condition_occurrence tables.
+    from: >
+      (
+        SELECT person_id, measurement_date AS event_date FROM omop_measurement
+        UNION ALL
+        SELECT person_id, condition_start_date AS event_date FROM omop_condition_occurrence
+      ) e
+    group_by: e.person_id
+    columns:
+      observation_period_id: row_number() OVER (ORDER BY e.person_id)
+      person_id: e.person_id
+      observation_period_start_date: min(e.event_date)
+      observation_period_end_date: max(e.event_date)
+      period_type_concept_id: 32817
