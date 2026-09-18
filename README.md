@@ -6,8 +6,6 @@
 
 **ETL pipeline and federated learning framework for OMOP Common Data Model data.**
 
-Outcome slides: https://docs.google.com/presentation/d/1I1nlIlsc0asSbRA2BaA1wkYWe8p0m3jS/edit?usp=sharing&ouid=114199228492846411451&rtpof=true&sd=true
-
 Federated learning has worked for years, and it still almost never happens: every biobank stores its data differently, and a hand-built ETL per source takes months.
 We automated that step. Raw biobank data in, harmonised OMOP out, quality controlled, trained across sites. Nothing leaves the institution.
 Collaboration stops being a technical problem. It becomes a choice.
