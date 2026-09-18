@@ -9,7 +9,9 @@ sys.path.insert(0, str(SKILL / "scripts"))
 
 from profile_source import profile  # noqa: E402
 from run_mapping import run  # noqa: E402
-from validate_contract import check, compare  # noqa: E402
+from validate_contract import check, compare, load_contract  # noqa: E402
+
+CONTRACT_REV1 = load_contract(SKILL / "contract_rev1.yaml")
 
 
 class SyntheaMappingTest(unittest.TestCase):
@@ -21,8 +23,8 @@ class SyntheaMappingTest(unittest.TestCase):
                 counts,
                 {"person": 4, "observation_period": 3, "measurement": 6, "condition_occurrence": 2},
             )
-            self.assertEqual(check(out), [])
-            self.assertEqual(compare(out, HERE / "expected_omop"), [])
+            self.assertEqual(check(out, CONTRACT_REV1), [])
+            self.assertEqual(compare(out, HERE / "expected_omop", CONTRACT_REV1), [])
 
     def test_profile_lists_codes(self):
         report = profile(HERE / "fixture_synthea")
