@@ -15,26 +15,26 @@ These scripts download and select fields from the [official UK Biobank synthetic
 ## Download a 10,000-row sample and create the E11 subset
 
 ```bash
-python3 ukb_omop_agent/ukb/sample_ukb_fields.py \
+python3 omop_skill/review/ukb/sample_ukb_fields.py \
   --rows 10000 \
-  --output ukb_omop_agent/ukb/data/ukb_sampled
+  --output omop_skill/review/ukb/data/ukb_sampled
 
-python3 ukb_omop_agent/ukb/make_ukb_subset.py \
-  --input ukb_omop_agent/ukb/data/ukb_sampled \
-  --output ukb_omop_agent/ukb/data/ukb_e11_pilot \
+python3 omop_skill/review/ukb/make_ukb_subset.py \
+  --input omop_skill/review/ukb/data/ukb_sampled \
+  --output omop_skill/review/ukb/data/ukb_e11_pilot \
   --all-e11
 ```
 
 The sampler takes the first 10,000 records from each relevant field-group file and verifies that their EIDs align. Because the files are partial extracts, the published whole-file MD5 checksums cannot verify them. The subset command then selects **every participant** with a diagnosis code starting `E11` in that sample, without a fixed participant or case count. It keeps all seven selected fields for those people, including diagnosis codes outside the E11 family. The number selected depends on the downloaded data.
 
-The result is `ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv` plus a `manifest.json`. The TSV has one row per selected EID and retains available instances and arrays for the seven fields. It is source data, **not yet OMOP**. Later, `general_agent.py --diagnosis-prefix E11` selects only E11-family diagnosis events for OMOP review and mapping; that flag does not change who is in the TSV.
+The result is `omop_skill/review/ukb/data/ukb_e11_pilot/ukb_subset.tsv` plus a `manifest.json`. The TSV has one row per selected EID and retains available instances and arrays for the seven fields. It is source data, **not yet OMOP**. Later, `general_agent.py --diagnosis-prefix E11` selects only E11-family diagnosis events for OMOP review and mapping; that flag does not change who is in the TSV.
 
 For a different diagnosis, select participants by exact ICD-10 code or family prefix. For example, to include every participant with a `J45` family code in the 10,000-row sample:
 
 ```bash
-python3 ukb_omop_agent/ukb/make_ukb_subset.py \
-  --input ukb_omop_agent/ukb/data/ukb_sampled \
-  --output ukb_omop_agent/ukb/data/ukb_j45_pilot \
+python3 omop_skill/review/ukb/make_ukb_subset.py \
+  --input omop_skill/review/ukb/data/ukb_sampled \
+  --output omop_skill/review/ukb/data/ukb_j45_pilot \
   --all-matching --diagnosis-prefix J45
 ```
 
@@ -45,13 +45,13 @@ python3 ukb_omop_agent/ukb/make_ukb_subset.py \
 If you need the complete synthetic field-group files, first inspect the download plan, then download and verify the published MD5 checksums:
 
 ```bash
-python3 ukb_omop_agent/ukb/download_ukb_fields.py
-python3 ukb_omop_agent/ukb/download_ukb_fields.py \
-  --download --output ukb_omop_agent/ukb/data/ukb_tabular
+python3 omop_skill/review/ukb/download_ukb_fields.py
+python3 omop_skill/review/ukb/download_ukb_fields.py \
+  --download --output omop_skill/review/ukb/data/ukb_tabular
 
-python3 ukb_omop_agent/ukb/make_ukb_subset.py \
-  --input ukb_omop_agent/ukb/data/ukb_tabular \
-  --output ukb_omop_agent/ukb/data/ukb_e11_pilot \
+python3 omop_skill/review/ukb/make_ukb_subset.py \
+  --input omop_skill/review/ukb/data/ukb_tabular \
+  --output omop_skill/review/ukb/data/ukb_e11_pilot \
   --all-e11
 ```
 

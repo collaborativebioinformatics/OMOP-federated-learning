@@ -10,7 +10,7 @@ from pathlib import Path
 import duckdb
 
 HERE = Path(__file__).parent
-SAMPLE = HERE.parents[1] / "ukb_omop_agent" / "ukb" / "data" / "ukb_sampled"
+SAMPLE = HERE.parents[1] / "omop_skill" / "review" / "ukb" / "data" / "ukb_sampled"
 
 # Target file name that ukb_pilot.yaml expects -> source TSV and the fields it must keep.
 FILES = {

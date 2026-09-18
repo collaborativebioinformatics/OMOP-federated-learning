@@ -26,6 +26,19 @@ class SyntheaMappingTest(unittest.TestCase):
             self.assertEqual(check(out, CONTRACT_REV1), [])
             self.assertEqual(compare(out, HERE / "expected_omop", CONTRACT_REV1), [])
 
+    def test_allow_extra_accepts_route_b_columns(self):
+        with tempfile.TemporaryDirectory() as folder:
+            out = Path(folder)
+            for source in (HERE / "expected_omop").glob("*.csv"):
+                (out / source.name).write_bytes(source.read_bytes())
+            measurement = out / "measurement.csv"
+            lines = measurement.read_text(encoding="utf-8").splitlines()
+            lines = [lines[0] + ",measurement_source_concept_id"] + [line + ",0" for line in lines[1:]]
+            measurement.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            (out / "observation.csv").write_text("observation_id,person_id\n1,1\n", encoding="utf-8")
+            self.assertTrue(any("differ from contract" in p for p in check(out, CONTRACT_REV1)))
+            self.assertEqual(check(out, CONTRACT_REV1, allow_extra=True), [])
+
     def test_profile_lists_codes(self):
         report = profile(HERE / "fixture_synthea")
         self.assertIn("## observations.csv: 8 rows", report)

@@ -24,7 +24,9 @@ def read(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, keep_default_na=False)
 
 
-def check(site: Path, contract: dict | None = None) -> list[str]:
+def check(site: Path, contract: dict | None = None, allow_extra: bool = False) -> list[str]:
+    """Check one site folder. With allow_extra, the contract's columns must be present in any order,
+    and extra columns and tables are ignored, as in route B output."""
     contract = contract or load_contract()
     site = Path(site)
     problems: list[str] = []
@@ -37,7 +39,12 @@ def check(site: Path, contract: dict | None = None) -> list[str]:
         df = read(path)
         frames[table] = df
         expected = list(spec["columns"])
-        if list(df.columns) != expected:
+        if allow_extra:
+            missing = [c for c in expected if c not in df.columns]
+            if missing:
+                problems.append(f"{table}: contract columns missing: {missing}")
+                continue
+        elif list(df.columns) != expected:
             problems.append(f"{table}: columns {list(df.columns)} differ from contract {expected}")
             continue
         id_column = expected[0]
@@ -126,9 +133,10 @@ def main() -> int:
     parser.add_argument("site", type=Path, help="output folder of one site")
     parser.add_argument("--reference", type=Path, help="trusted output for the same raw data")
     parser.add_argument("--contract", type=Path, help="contract YAML, default omop_skill/contract.yaml")
+    parser.add_argument("--allow-extra", action="store_true", help="accept extra OMOP columns and tables (route B output)")
     args = parser.parse_args()
     contract = load_contract(args.contract)
-    problems = check(args.site, contract)
+    problems = check(args.site, contract, allow_extra=args.allow_extra)
     print(f"Contract check for {args.site}:")
     print("  OK" if not problems else "\n".join(f"  - {p}" for p in problems))
     differences: list[str] = []
