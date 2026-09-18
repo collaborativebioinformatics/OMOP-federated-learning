@@ -139,3 +139,4 @@ examples/omop_t2dm/workspace/
 examples/.synthea1k/
 examples/mimic_mortality/data/
 examples/mimic_mortality/spec.json
+examples/.scale/

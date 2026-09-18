@@ -1,0 +1,46 @@
+[
+  {
+    "people": 1000,
+    "measurement_rows": 3385500,
+    "scan_seconds": 0.14102751575410366,
+    "build_seconds": 0.026981951668858528,
+    "epoch_seconds": 0.027378041297197342,
+    "scan_people_per_second": 7090.8148289558285,
+    "build_people_per_second": 37061.81125341498,
+    "epoch_people_per_second": 36525.6224557733,
+    "peak_gb": 1.00208
+  },
+  {
+    "people": 10000,
+    "measurement_rows": 33855000,
+    "scan_seconds": 0.12447421625256538,
+    "build_seconds": 0.10112042538821697,
+    "epoch_seconds": 0.009868714027106762,
+    "scan_people_per_second": 80337.92299370194,
+    "build_people_per_second": 98891.98904779575,
+    "epoch_people_per_second": 1013303.2503052201,
+    "peak_gb": 1.258596
+  },
+  {
+    "people": 100000,
+    "measurement_rows": 338550000,
+    "scan_seconds": 0.7793683158233762,
+    "build_seconds": 0.7649802220985293,
+    "epoch_seconds": 0.08768061734735966,
+    "scan_people_per_second": 128309.03947429964,
+    "build_people_per_second": 130722.33387377695,
+    "epoch_people_per_second": 1140502.91872188,
+    "peak_gb": 1.779268
+  },
+  {
+    "people": 1000000,
+    "measurement_rows": 3385500000,
+    "scan_seconds": 7.870839384384453,
+    "build_seconds": 7.65515090432018,
+    "epoch_seconds": 1.0797598287463188,
+    "scan_people_per_second": 127051.2522443254,
+    "build_people_per_second": 130630.99767708701,
+    "epoch_people_per_second": 926131.8798654273,
+    "peak_gb": 6.150656
+  }
+]
