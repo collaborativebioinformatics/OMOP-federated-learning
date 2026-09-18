@@ -28,12 +28,29 @@ Instructions for any coding agent: [`omop_skill/SKILL.md`](omop_skill/SKILL.md).
 | Mapping | Written blind by an agent. Against OHDSI ETL-Synthea on 1,162 patients: 254,882 of 254,891 measurement values identical, no difference in diagnoses. 8 s for 2.1 GB, no server. |
 | Quality control | Caught what both conversions let through, negative LDL and an HbA1c median of 3.9 %, and shows before training whether the sites differ enough to be worth federating. |
 | UK Biobank | The same skill maps the raw extract. All eight assessment centres pass the contract. |
-| Scale | 1 million patients and 3.39 billion rows: 7.9 s scan, 6.2 GB of memory. |
 
-![Fragmenting a cohort costs a local model 10 AUROC points; federating recovers them](presentation/figures/federation_benchmark.png)
+<p>
+<img src="presentation/figures/federation_benchmark.png" width="40%" alt="Fragmenting a cohort costs a local model 10 AUROC points; federating recovers them">
+<img src="presentation/figures/scale.png" width="58%" alt="Time and memory as one site grows to 1 million patients">
+</p>
 
 One real cohort of 964 patients, split across 1 to 16 sites. Alone, a site falls from 0.87 to 0.77 AUROC. Federated, it holds at 0.87 to 0.92, level with pooled.
-On five Synthea sites, federated matches pooled (AUROC 0.582 against 0.586). On synthetic UK Biobank, which has no signal, no model beats chance, so the negative control holds.
+At 1 million patients and 3.39 billion rows, the scan takes 7.9 s and 6.2 GB of memory.
+
+**Before training**, the cohort overview shows whether the sites differ enough to be worth federating. The Synthea sites do, the UK Biobank centres are copies of one cohort.
+
+<p>
+<img src="presentation/figures/qc_synthea_cohort_2.png" width="49%" alt="Synthea cohort_2 before any modelling: cohort funnel, case rate by site, systolic blood pressure against the plausible range, cases against controls">
+<img src="presentation/figures/qc_ukb.png" width="49%" alt="UK Biobank synthetic extract before any modelling: cohort funnel, case rate by site, systolic blood pressure against the plausible range, cases against controls">
+</p>
+
+**Five Synthea sites:** federated matches pooled (AUROC 0.582 against 0.586), while the smallest site alone scores 0.433.
+
+![Incident type 2 diabetes across five Synthea sites: what each site holds, AUROC per site against federated and pooled, and how single-site estimates scatter](presentation/figures/federated_synthea_sites.png)
+
+**Eight UK Biobank centres, the negative control:** the data has no signal and every interval covers 0.5. Single sites still show apparent signal, federation averages it out.
+
+![Incident type 2 diabetes across eight UK Biobank assessment centres: every interval covers 0.5](presentation/figures/federated_ukb_centres.png)
 
 Details: [`omop_skill/RESULTS.md`](omop_skill/RESULTS.md), [`examples/synthea_diabetes`](examples/synthea_diabetes/README.md), [`examples/ukb_diabetes`](examples/ukb_diabetes/README.md), and the [final slides](presentation/concordia_final_slides.pdf).
 
