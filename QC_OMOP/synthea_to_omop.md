@@ -251,7 +251,9 @@ Then run the R script from **B4** to complete the OMOP load.
 ## Notes and gotchas
 
 - **CDM version**: `ETLSyntheaBuilder` currently targets CDM v5.3/5.4 depending on the release, pin the package version if you need exact compatibility with a downstream tool like ATLAS.
-- **Vocabulary size**: the full OHDSI vocabulary download is large (several GB uncompressed) and the `CONCEPT` table load is usually the slowest step, budget time for it. Part B1 avoids this entirely; its bundled 33,207-concept subset already covers Synthea's codes.
-- **Mapping gaps**: Synthea's synthetic conditions/procedures don't always map cleanly to standard concepts for highly granular domains (e.g., precise anatomical site). Expect to spot-check condition_occurrence and procedure_occurrence after loading.
+- **Vocabulary size**: the full OHDSI vocabulary download is large (several GB uncompressed) and the `CONCEPT` table load is usually the slowest step, budget time for it.
+Part B1 avoids this entirely; its bundled 33,207-concept subset already covers Synthea's codes.
+- **Mapping gaps**: Synthea's synthetic conditions/procedures don't always map cleanly to standard concepts for highly granular domains (e.g., precise anatomical site).
+Expect to spot-check condition_occurrence and procedure_occurrence after loading.
 - **Scale**: for populations beyond ~50–100k patients, the R-based ETL can get slow; at that scale, consider the newer SQL/Spark-based ETL pipelines from the OHDSI community instead of ETLSyntheaBuilder.
 - **Reproducibility**: always pass `-s <seed>` to Synthea if you need to regenerate the same population later for comparison.

@@ -11,17 +11,12 @@ These sanity checks should ideally be comparisons between raw data, our OMOP con
 
 ## Tools to do QC/sanity checks in OMOP data: <br>
 ### Achilles <br>
-R package: OHDSI/Achilles <br>
-Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.) <br>
-Powers visual exploration in ATLAS <br>
+R package: OHDSI/Achilles <br> Generates descriptive statistics across the whole CDM (counts, distributions by year/age/gender, etc.) <br> Powers visual exploration in ATLAS <br>
 
 ### [Consolidated tool](https://ohdsi.github.io/DataQualityDashboard/) for visual checks and QC of OMOP data.
 
 ### Check	Primary Tool	Secondary/Support
-Missingness	- DQD (Completeness) -	White Rabbit (source comparison) <br>
-All tables present -	Achilles (row counts)	- Manual DDL check <br>
-Date format/logic -	DQD (Plausibility)	- Custom SQL <br>
-Conversion/mapping rate	- Achilles Heel	- Usagi, custom SQL <br>
+Missingness	- DQD (Completeness) -	White Rabbit (source comparison) <br> All tables present -	Achilles (row counts)	- Manual DDL check <br> Date format/logic -	DQD (Plausibility)	- Custom SQL <br> Conversion/mapping rate	- Achilles Heel	- Usagi, custom SQL <br>
 
 
 ## Final OMOP Data QC Checklist
