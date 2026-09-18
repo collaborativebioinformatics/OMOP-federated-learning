@@ -1,6 +1,15 @@
 # Project 5: Everything OMOP
 
 ```mermaid
+%%{init: {
+  "flowchart": {
+    "subGraphTitleMargin": {
+      "top": 10,
+      "bottom": 25
+    }
+  }
+}}%%
+
 flowchart TB
 
 subgraph SP1["Subproject 1:<br/>Any biobank to OMOP"]
