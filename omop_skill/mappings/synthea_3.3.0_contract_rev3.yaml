@@ -1,0 +1,100 @@
+# Synthea 3.3.0 CSV export -> OMOP tables of contract/data_contract.md, current revision (2026-09-18):
+# 3 condition codes, 9 measurement codes, race and ethnicity concepts.
+# Written from the contract text and the source profile only, without looking at any existing OMOP output.
+# Every concept ID below was checked against Athena v5.0 29-AUG-26: valid, standard, and the "Maps to" target of its code.
+source: synthea-3.3.0
+contract: contract.yaml
+
+files:
+  patients: patients.csv
+  observations: observations.csv
+  conditions: conditions.csv
+
+concept_maps:
+  gender:
+    "M": 8507
+    "F": 8532
+  race:
+    "white": 8527
+    "black": 8516
+    "asian": 8515
+    "hawaiian": 8557
+  ethnicity:
+    "hispanic": 38003563
+    "nonhispanic": 38003564
+  measurement:
+    "4548-4": 3004410   # Hemoglobin A1c
+    "39156-5": 3038553  # Body mass index
+    "8480-6": 3004249   # Systolic blood pressure
+    "2339-0": 3000483   # Glucose in blood
+    "2345-7": 3004501   # Glucose in serum or plasma, kept separate from 2339-0 as the contract requires
+    "2093-3": 3027114   # Total cholesterol
+    "2085-9": 3007070   # HDL cholesterol
+    "18262-6": 3009966  # LDL cholesterol
+    "2571-8": 3022192   # Triglycerides
+  unit:
+    "%": 8554
+    "kg/m2": 9531
+    "mm[Hg]": 8876
+    "mg/dL": 8840
+  condition:
+    "44054006": 201826  # Type 2 diabetes mellitus
+    "26929004": 378419  # Alzheimer disease
+    "49049000": 381270  # Parkinson disease
+
+tables:
+  # One row for every row in patients.csv, numbered in file order.
+  person:
+    from: patients
+    columns:
+      person_id: row_number() OVER (ORDER BY src_row)
+      gender_concept_id: omop_concept('gender', GENDER)
+      year_of_birth: CAST(substr(BIRTHDATE, 1, 4) AS INTEGER)
+      race_concept_id: coalesce(omop_concept('race', RACE), 0)
+      ethnicity_concept_id: coalesce(omop_concept('ethnicity', ETHNICITY), 0)
+      person_source_value: Id
+
+  # One row for every patient, earliest and latest date across observations.DATE and conditions.START.
+  observation_period:
+    from: omop_person p
+    join: >-
+      LEFT JOIN (
+        SELECT PATIENT, CAST(substr(DATE, 1, 10) AS DATE) AS event_date FROM observations
+        UNION ALL
+        SELECT PATIENT, CAST(substr(START, 1, 10) AS DATE) AS event_date FROM conditions
+      ) events ON events.PATIENT = p.person_source_value
+    group_by: p.person_id
+    columns:
+      observation_period_id: row_number() OVER (ORDER BY p.person_id)
+      person_id: p.person_id
+      observation_period_start_date: strftime(min(events.event_date), '%Y-%m-%d')
+      observation_period_end_date: strftime(max(events.event_date), '%Y-%m-%d')
+      period_type_concept_id: 32817
+
+  # One row for every observation whose CODE is in the measurement map.
+  measurement:
+    from: observations o
+    join: JOIN omop_person p ON p.person_source_value = o.PATIENT
+    where: o.CODE IN (SELECT * FROM omop_codes('measurement'))
+    columns:
+      measurement_id: row_number() OVER (ORDER BY o.src_row)
+      person_id: p.person_id
+      measurement_concept_id: omop_concept('measurement', o.CODE)
+      measurement_date: substr(o.DATE, 1, 10)
+      measurement_type_concept_id: 32817
+      value_as_number: TRY_CAST(o.VALUE AS DOUBLE)
+      unit_concept_id: omop_concept('unit', o.UNITS)
+      measurement_source_value: o.CODE
+
+  # One row for every condition whose CODE is in the condition map.
+  condition_occurrence:
+    from: conditions c
+    join: JOIN omop_person p ON p.person_source_value = c.PATIENT
+    where: c.CODE IN (SELECT * FROM omop_codes('condition'))
+    columns:
+      condition_occurrence_id: row_number() OVER (ORDER BY c.src_row)
+      person_id: p.person_id
+      condition_concept_id: omop_concept('condition', c.CODE)
+      condition_start_date: substr(c.START, 1, 10)
+      condition_type_concept_id: 32817
+      condition_source_value: c.CODE

@@ -2,9 +2,9 @@
 
 State on 2026-09-17, branch `omop-skill-mvp`.
 
-Checked against revision 1 of `contract/data_contract.md`: observation period from encounters, BMI and systolic blood pressure.
-Revision 2 changed the contract after these tests: HbA1c as the outcome, race and ethnicity concepts, observation period from observation and condition dates, plausibility ranges.
-The skill does not support revision 2 yet.
+Two test series.
+Revision 1 of `contract/data_contract.md` on `cohort_2`, against the team's hand-written ETL (first sections).
+Revision 2 blind, on a fresh Synthea run, compared against OHDSI ETL-Synthea (section "Blind run").
 
 Raw Synthea data in, the four contract tables out, checked against the contract.
 On all five sites of `cohort_2` the output is identical to the tables the team wrote by hand, and `omopflare` from subproject 2 reads it without errors.
@@ -34,6 +34,74 @@ What the tests don't prove:
 - The reference is the team's own hand-written ETL, not OHDSI ETL-Synthea. A logic error there is reproduced here.
 - The compact source was filtered by the same team code. The full 3.9 GB export has not been run.
 
+## Blind run: fresh Synthea data, contract revision 2
+
+Raw data first, OMOP later.
+The mapping was written after the data existed, from the contract text and the profile only, without any existing OMOP output to copy from.
+
+| Step | Result |
+|---|---|
+| Synthea 3.3.0 | 1,162 patients (1,000 alive), Massachusetts, 2.1 GB |
+| Mapping | `mappings/synthea_3.3.0_contract_rev2.yaml` |
+| Conversion | 8 s: 1,162 persons, 1,162 observation periods, 151,219 measurements, 94 T2DM diagnoses |
+| Structure checks | Pass: columns, types, concept IDs, person links |
+| Plausibility check | Fails: 3,103 HbA1c values below 3 % in 87 persons, 99 systolic values below 60 in 9 adults |
+| Site split | site_a 387, site_b 388, site_c 387 persons |
+| Comparison with ETL-Synthea | Measurements and diagnoses identical, persons identical except race for 11 patients, see below |
+
+The raw data comes from:
+
+```bash
+java -jar synthea-3.3.0.jar -s 20260917 -cs 20260917 -r 20260917 -e 20260917 -p 1000 --exporter.csv.export=true --exporter.fhir.export=false --exporter.years_of_history=0 Massachusetts
+```
+
+Findings:
+
+- Synthea's HbA1c runs low: median 3.9 %, 5th percentile 2.8 %, also for patients with type 2 diabetes. The plausibility failure comes from the data, the ETL copies the values. HbA1c as the target needs a second look.
+- Rerunning the command gives the same rows in a different order. `person_id` follows file order, so the `person_id % 3` split moves patients between sites across reruns. Numbering patients sorted by `Id` would fix that.
+- The contract doesn't say which remainder goes to which site. `split_sites.py` uses 0 for site_a.
+
+### Comparison with OHDSI ETL-Synthea
+
+ETL-Synthea converted the same raw data into a full OMOP CDM 5.4 database on DuckDB: 1,162 persons, 199,567 visits, 50,649 conditions, 1,952,281 measurements, 148,431 drug exposures.
+`scripts/compare_reference.py` compared it with the skill output as section 8 of the contract describes, persons joined on `person_source_value`.
+The comparison script was self-tested first: an identical copy passes, four planted changes are all found.
+
+| Table | Result |
+|---|---|
+| person | 1,162 in both. Gender, year of birth and ethnicity identical. Race differs for 11 persons. |
+| measurement | Identical: 151,219 rows, every value on every date |
+| condition_occurrence | Identical: 94 persons with type 2 diabetes, every start date |
+
+The 11 race differences are the 11 patients with Synthea race `hawaiian`.
+The contract maps it to 8557, Native Hawaiian or Other Pacific Islander. ETL-Synthea maps only white, black and asian and writes 0 for the rest.
+The difference comes from the contract, not from a mapping error.
+
+The vocabulary in the same database confirms all 16 concept IDs of contract section 6: each exists, is standard and valid, and the four source codes map to them via `Maps to`.
+Athena release `v5.0 29-AUG-26`, the date section 2 of the contract asks for.
+`native` (5 patients) could map to 8657, American Indian or Alaska Native, instead of 0.
+
+Rebuilding the reference: [reference/README.md](reference/README.md).
+
+### Current contract (2026-09-18): 12 source codes
+
+The contract grew to 3 condition codes and 9 measurement codes.
+Same raw run, same ETL-Synthea database, reference re-exported for the 12 codes, mapping `mappings/synthea_3.3.0_contract_rev3.yaml`.
+All 22 concept IDs of the contract checked against Athena v5.0 29-AUG-26: valid, standard, and the `Maps to` target of their source code.
+The Synthea units match the units the contract lists.
+
+| Table | Skill | ETL-Synthea | Result |
+|---|---|---|---|
+| person | 1,162 | 1,162 | Identical except race for the 11 `hawaiian` patients, as before |
+| measurement | 254,891 | 254,891 | Same rows on every date, 9 values differ |
+| condition_occurrence | 120 rows, 113 persons | 113 persons | Identical, every start date |
+
+Contract check: OK. Conversion: 8 s.
+
+The 9 value differences are LDL cholesterol (LOINC 18262-6) below zero, as low as -28.1 mg/dL.
+Synthea writes these values. The skill copies them as the contract says, ETL-Synthea leaves `value_as_number` empty.
+A negative LDL is impossible, so the fix belongs in QC: a plausibility check on lab values catches it.
+
 ## How it differs from the hand-written ETL
 
 | | Hand-written ETL (`build_datasets.py`) | omop_skill |
@@ -60,8 +128,8 @@ The skill pays off from the second source on, and as a check anyone can run on a
 
 ## What it can't do yet
 
-- Generate a mapping on its own. The Synthea mapping was written to match `build.py`, not derived from the profile alone. Claude has not written a mapping for a new source yet.
-- Look up concepts. Only the 9 concept IDs of the contract are known, nothing is checked against Athena.
+- Prove it works on a source other than Synthea. The revision 2 mapping was written blind from contract and profile, but the source was Synthea again.
+- Look up concepts on its own. The concept IDs come from the contract. They were checked against the Athena vocabulary once, not by the skill.
 - Cover more than 4 tables and 3 source codes: BMI, systolic blood pressure, type 2 diabetes. Race and ethnicity are always 0.
 - Produce a full OMOP database: no vocabulary tables, visits, drugs or procedures.
 

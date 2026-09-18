@@ -1,15 +1,15 @@
-# Machine-readable version of contract/data_contract.md, current revision (2026-09-18, 22 concept IDs).
-# Change both files together. Revision 1 lives in contract_rev1.yaml for cohort_2.
-# The 2026-09-18 revision drops the plausibility ranges of revision 2, so none are checked here.
-version: "2026-09-18"
+# Machine-readable version of contract/data_contract.md, revision 1 (2026-09-17), sections 4 and 5.
+# Kept for the cohort_2 data and the fixture test. The current revision lives in contract.yaml.
+# gender_concept_id and unit_concept_id also allow 0 for unmapped values, as synthea_datasets/build.py writes them.
+version: "2026-09-17"
 tables:
   person:
     columns:
       person_id: {type: integer}
-      gender_concept_id: {type: integer, allowed: [8507, 8532]}
+      gender_concept_id: {type: integer, allowed: [8507, 8532, 0]}
       year_of_birth: {type: integer}
-      race_concept_id: {type: integer, allowed: [8527, 8516, 8515, 8557, 0]}
-      ethnicity_concept_id: {type: integer, allowed: [38003563, 38003564, 0]}
+      race_concept_id: {type: integer, allowed: [0]}
+      ethnicity_concept_id: {type: integer, allowed: [0]}
       person_source_value: {type: text}
   observation_period:
     columns:
@@ -22,22 +22,17 @@ tables:
     columns:
       measurement_id: {type: integer}
       person_id: {type: integer}
-      measurement_concept_id:
-        type: integer
-        allowed: [3004410, 3038553, 3004249, 3000483, 3004501, 3027114, 3007070, 3009966, 3022192]
+      measurement_concept_id: {type: integer, allowed: [3038553, 3004249]}
       measurement_date: {type: date}
       measurement_type_concept_id: {type: integer, allowed: [32817]}
       value_as_number: {type: decimal, required: false}
-      unit_concept_id: {type: integer, allowed: [8554, 9531, 8876, 8840]}
+      unit_concept_id: {type: integer, allowed: [9531, 8876, 0]}
       measurement_source_value: {type: text}
   condition_occurrence:
     columns:
       condition_occurrence_id: {type: integer}
       person_id: {type: integer}
-      condition_concept_id: {type: integer, allowed: [201826, 378419, 381270]}
+      condition_concept_id: {type: integer, allowed: [201826]}
       condition_start_date: {type: date}
       condition_type_concept_id: {type: integer, allowed: [32817]}
       condition_source_value: {type: text}
-
-comparison:
-  measurement_value_tolerance: 0.01
