@@ -210,9 +210,10 @@ def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
     )
     axis.set_xlabel(feature, fontsize=12)
     axis.set_ylabel("density", fontsize=12)
-    axis.legend(fontsize=10, frameon=False)
     difference = float(np.nanmean(values[case]) - np.nanmean(values[~case])) / float(np.nanstd(values))
-    axis.text(0.98, 0.72, f"cases {difference:+.2f} SD", transform=axis.transAxes, ha="right", fontsize=10, color=MUTED)
+    legend = axis.legend(fontsize=10, frameon=False, title=f"cases {difference:+.2f} SD")
+    legend.get_title().set_fontsize(10)
+    legend.get_title().set_color(MUTED)
     axis.set_title(f"{feature}, cases and controls", fontsize=13)
 
 
