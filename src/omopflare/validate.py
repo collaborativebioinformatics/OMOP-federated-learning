@@ -1,5 +1,3 @@
-"""Checks a site must pass before its weights are worth averaging."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -22,16 +20,34 @@ class Finding:
         return f"[{self.level}] {self.check}: {self.detail}"
 
 
-def validate(source: OmopSource, spec: FeatureSpec, *, max_unmapped: float = 0.05) -> list[Finding]:
+def validate(
+    source: OmopSource,
+    spec: FeatureSpec,
+    *,
+    max_unmapped: float = 0.05,
+    strict: bool = False,
+) -> list[Finding]:
     """Compare one site against the spec it is about to extract with.
 
-    An ``error`` means the site's contribution would be wrong rather than merely noisy, so training should stop.
+    Args:
+        source: The site to check.
+        spec: The frozen feature schema.
+        max_unmapped: Largest tolerated fraction of rows with ``concept_id = 0``.
+        strict: Raise instead of returning when any finding is an error.
+
+    Returns:
+        Findings, where an ``error`` means the site's contribution would be wrong rather than noisy.
+
+    Raises:
+        ValueError: If ``strict`` and any finding is an error.
     """
     findings: list[Finding] = []
     findings += _check_vocabulary(source, spec)
     findings += _check_concepts(source, spec)
     findings += _check_unmapped(source, spec, max_unmapped)
     findings += _check_units(source, spec)
+    if strict and (failures := errors(findings)):
+        raise ValueError("\n".join(str(f) for f in failures))
     return findings
 
 
@@ -116,22 +132,26 @@ def _check_units(source: OmopSource, spec: FeatureSpec) -> list[Finding]:
         present = {int(row[0]) if row[0] is not None else None: int(row[1]) for row in rows}
         if not present:
             continue
-        matching = present.get(feature.unit_concept_id, 0)
-        other = sum(count for unit, count in present.items() if unit != feature.unit_concept_id)
-        if matching == 0:
+        known = {feature.unit_concept_id, *(unit for unit, _, _ in feature.conversions)}
+        usable = sum(count for unit, count in present.items() if unit in known)
+        unknown = {unit: count for unit, count in present.items() if unit not in known}
+        if usable == 0:
             findings.append(
                 Finding(
                     "error",
                     "units",
-                    f"{feature.name}: no rows in unit {feature.unit_concept_id}, found {sorted(present)}",
+                    f"{feature.name}: no rows in unit {feature.unit_concept_id} or a declared conversion, "
+                    f"found {sorted(present)}",
                 )
             )
-        elif other > matching:
+        elif unknown:
+            worst = sorted(unknown.items(), key=lambda item: -item[1])
             findings.append(
                 Finding(
                     "warning",
                     "units",
-                    f"{feature.name}: {other} rows in other units vs {matching} matching, and they are dropped",
+                    f"{feature.name}: {sum(unknown.values())} of {usable + sum(unknown.values())} rows are dropped "
+                    f"for want of a conversion, units {[unit for unit, _ in worst]}",
                 )
             )
     return findings

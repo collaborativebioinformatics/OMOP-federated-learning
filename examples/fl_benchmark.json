@@ -1,0 +1,59 @@
+{
+  "accuracy": [
+    {
+      "sites": 1,
+      "patients_per_site": 674,
+      "local": 0.8687817114681753,
+      "federated": 0.8886994128930944,
+      "centralized": 0.8767361919365244
+    },
+    {
+      "sites": 2,
+      "patients_per_site": 337,
+      "local": 0.8440904878003073,
+      "federated": 0.8860592167461135,
+      "centralized": 0.861942120502893
+    },
+    {
+      "sites": 4,
+      "patients_per_site": 168,
+      "local": 0.7988569196715803,
+      "federated": 0.8744900445954521,
+      "centralized": 0.8529897450675833
+    },
+    {
+      "sites": 8,
+      "patients_per_site": 84,
+      "local": 0.8046138221731898,
+      "federated": 0.9164480243784745,
+      "centralized": 0.866871789340504
+    },
+    {
+      "sites": 16,
+      "patients_per_site": 42,
+      "local": 0.7651453543144902,
+      "federated": 0.8809414403617699,
+      "centralized": 0.8705430958190444
+    }
+  ],
+  "throughput": [
+    {
+      "people": 10000,
+      "events": 500000,
+      "seconds": 0.024561287835240364,
+      "people_per_second": 407144.77461772464
+    },
+    {
+      "people": 100000,
+      "events": 5000000,
+      "seconds": 0.07965623494237661,
+      "people_per_second": 1255394.5095740475
+    },
+    {
+      "people": 1000000,
+      "events": 50000000,
+      "seconds": 0.7048392640426755,
+      "people_per_second": 1418763.1861829048
+    }
+  ]
+}

@@ -3,9 +3,9 @@
 ```mermaid
 flowchart TB
     subgraph SP1["Subproject 1: Any biobank to OMOP"]
-        A["Agree on minimal required tables<br/>and fields common to biobanks"]
-        B["Collect ~2 datasets with existing<br/>OMOP conversions, e.g. UK Biobank"]
-        C["Skill / framework POC<br/>biobank schema to OMOP CDM"]
+        A["Agree on minimal required <br/> tables and fields common to biobanks"]
+        B["Collect ~2 datasets with existing <br/> OMOP conversions, e.g. UK Biobank"]
+        C["Skill / framework POC <br/> biobank schema to OMOP CDM"]
         D{"Reproduces the published<br/>conversion?"}
         E["Convert ~3 datasets<br/>not yet in OMOP"]
         A --> B --> C --> D
@@ -35,42 +35,44 @@ flowchart TB
     class J out
 ```
 
-## Programming language
+**Subproject 1** gets any biobank dataset into OMOP.
+**Subproject 2** runs federated learning over the result.
+The diagram above is the plan; `plan.md` has the schedule.
 
-Python is the preferred language for code in this repo.
+A one-page summary of the whole project is in [`docs/index.html`](docs/index.html); open it in a browser.
 
-## Subproject 1: An automated way of getting biobank data into OMOP 
+## Layout
 
-### Goal
+| path | what |
+| --- | --- |
+| `src/omopflare` | the library: OMOP feature extraction for federated learning ([README](src/omopflare/README.md)) |
+| `examples/omop_t2dm` | federated T2DM risk over any cohort's sites |
+| `examples/` | NVFlare hello-world samples and earlier demos |
+| `synthea_cohorts` | the cohorts, one folder per generation method |
+| `contract` | the OMOP table contract the two subprojects hand over on |
 
-Come up with a skill or framework/tool to get ANY biobank dataset into OMOP.
+## Quickstart
 
-### Milestones
+```bash
+pip install -e .
+python examples/omop_t2dm/run.py --sites synthea_cohorts/cohort_2/data/omop
+```
 
-- Agree on the minimal required tables & information of any biobanks for both datasets.
-- Find ±2 datasets that have already been transferred to OMOP such as the UK Biobank.
-- Write a skill or framework POC that recreates the existing conversions on its own to reproduce the conversion. This serves as our primary evaluation.
-- Find ±3 datasets that are not yet in OMOP. Transform these into OMOP. They will serve as the eventual input for sub project 2.
+```python
+import omopflare as of
 
-## Subproject 2: A proof of concept of federated learning applied to OMOP datasets
+spec = of.FeatureSpec(
+    features=(of.Feature("bmi", 3038553, "measurement", unit_concept_id=9531, plausible_range=(10.0, 80.0)),),
+    vocabulary_version="v5.0 31-AUG-24",
+    lookback_days=365,
+)
+site = of.OmopSource("/data/omop/site_a")
+of.validate(site, spec, strict=True)
+person_ids, X = of.feature_matrix(site, spec, "select person_id, current_date as index_date from person")
+```
 
-### Goal
+A full NVFlare job is in [src/omopflare/README.md](src/omopflare/README.md).
 
-Implement a federated learning POC for OMOP data. Might require a new dataloader.
+## Members
 
-### Milestones
-
-- Learn NVFlare as our federated learning tool
-- Visualize & explore existing OMOP datasets. Try to understand how to best apply federated learning to them.
-- Implement a custom dataloader for federated learning and apply it to a simple linear model. The accuracy or scientific outcome doesn't matter.
-- Create a pipeline that brings together subproject 1 & 2
-
-### Members 
-- charles
-- solvi
-- lukas
-- maria
-- max
-- nik
-- mia
-- kev
+charles, solvi, lukas, maria, max, nik, mia, kev

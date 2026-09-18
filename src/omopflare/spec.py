@@ -1,5 +1,3 @@
-"""The frozen contract every site in a federation extracts against."""
-
 from __future__ import annotations
 
 import json
@@ -32,12 +30,16 @@ DATE_COLUMN: dict[Domain, str] = {
 
 @dataclass(frozen=True, slots=True)
 class Feature:
-    """One column of the design matrix, pinned to a concept and a unit.
+    """One column of the feature matrix.
 
-    ``unit_concept_id`` is required for numeric domains because ``value_as_number`` is meaningless without it;
-    glucose in mg/dL and mmol/L differ by roughly eighteen-fold.
-    ``plausible_range`` bounds are keyed on the concept and unit together, mirroring how the OHDSI Data Quality
-    Dashboard keys ``plausibleValueLow`` and ``plausibleValueHigh``.
+    Attributes:
+        name: Column name.
+        concept_id: Standard concept the feature reads.
+        domain: OMOP table the concept lives in.
+        unit_concept_id: The unit every value is expressed in after conversion.
+        plausible_range: Bounds checked after conversion.
+        conversions: ``(unit_concept_id, scale, offset)`` triples; a value in that unit becomes
+            ``value * scale + offset``. Undeclared units are dropped.
     """
 
     name: str
@@ -45,12 +47,15 @@ class Feature:
     domain: Domain = "measurement"
     unit_concept_id: int | None = None
     plausible_range: tuple[float, float] | None = None
+    conversions: tuple[tuple[int, float, float], ...] = ()
 
     def __post_init__(self) -> None:
         if self.concept_id <= 0:
             raise ValueError(f"{self.name}: concept_id must be a positive standard concept, got {self.concept_id}")
         if VALUE_COLUMN[self.domain] is not None and self.unit_concept_id is None:
             raise ValueError(f"{self.name}: {self.domain} features need a unit_concept_id")
+        if any(unit == self.unit_concept_id for unit, _, _ in self.conversions):
+            raise ValueError(f"{self.name}: a conversion is given for the pinned unit {self.unit_concept_id}")
 
     @property
     def is_numeric(self) -> bool:
@@ -59,11 +64,14 @@ class Feature:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSpec:
-    """An ordered, versioned feature schema shared by every site.
+    """An ordered feature schema shared by every site.
 
-    Position in ``features`` is the column index in the design matrix, so sites must never discover features from
-    their own data; a site missing a concept contributes an all-missing column rather than a narrower matrix.
-    ``vocabulary_version`` is recorded because concept IDs are deprecated and demoted between vocabulary releases.
+    Attributes:
+        features: Ordered features; position is the column index.
+        vocabulary_version: OMOP vocabulary release the concept IDs come from.
+        lookback_days: Window before each landmark.
+        missing_indicators: Append a ``<name>_missing`` column per numeric feature.
+        metadata: Free-form provenance.
     """
 
     features: tuple[Feature, ...]
@@ -112,6 +120,7 @@ class FeatureSpec:
                     "domain": f.domain,
                     "unit_concept_id": f.unit_concept_id,
                     "plausible_range": list(f.plausible_range) if f.plausible_range else None,
+                    "conversions": [list(c) for c in f.conversions],
                 }
                 for f in self.features
             ],
@@ -128,6 +137,7 @@ class FeatureSpec:
                 domain=f["domain"],
                 unit_concept_id=f["unit_concept_id"],
                 plausible_range=tuple(f["plausible_range"]) if f["plausible_range"] else None,
+                conversions=tuple(tuple(c) for c in f.get("conversions", ())),
             )
             for f in payload["features"]
         )

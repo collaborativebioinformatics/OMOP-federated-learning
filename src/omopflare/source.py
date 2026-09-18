@@ -1,5 +1,3 @@
-"""Read-only access to one site's OMOP tables, without loading them into Python."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -25,9 +23,9 @@ SUFFIXES = (".parquet", ".csv", ".csv.gz")
 class OmopSource:
     """A site's OMOP CDM tables, exposed to duckdb as views.
 
-    Tables stay on disk and are scanned with predicate push-down, so a MEASUREMENT table of billions of rows costs
-    memory only for the columns and rows a query actually keeps.
-    Parquet sorted by ``person_id`` is the fastest layout because a patient's rows are then contiguous.
+    Args:
+        path: Directory holding the CDM tables as Parquet or CSV.
+        connection: Existing duckdb connection; a new one is made if omitted.
     """
 
     def __init__(self, path: str | Path, *, connection: duckdb.DuckDBPyConnection | None = None) -> None:
@@ -38,15 +36,23 @@ class OmopSource:
         self._tables = self._register()
 
     def _register(self) -> Mapping[str, Path]:
+        by_stem: dict[str, Path] = {}
+        for candidate in sorted(self.path.iterdir()):
+            for suffix in SUFFIXES:
+                if candidate.name.lower().endswith(suffix):
+                    by_stem.setdefault(candidate.name[: -len(suffix)].lower(), candidate)
+                    break
+
         found: dict[str, Path] = {}
         for table in CDM_TABLES:
-            for suffix in SUFFIXES:
-                candidate = self.path / f"{table}{suffix}"
-                if candidate.exists():
-                    reader = "read_parquet" if suffix == ".parquet" else "read_csv"
-                    self.connection.execute(f"create or replace view {table} as select * from {reader}('{candidate}')")
-                    found[table] = candidate
-                    break
+            if (path := by_stem.get(table)) is None:
+                continue
+            if path.suffix == ".parquet":
+                scan = f"read_parquet('{path}')"
+            else:
+                scan = f"read_csv('{path}', sample_size = -1)"
+            self.connection.execute(f"create or replace view {table} as select * from {scan}")
+            found[table] = path
         if "person" not in found:
             raise FileNotFoundError(f"no person table under {self.path}")
         return found
@@ -68,7 +74,11 @@ class OmopSource:
         return tuple(column[0].lower() for column in rows)
 
     def vocabulary_version(self) -> str | None:
-        """Read the vocabulary release recorded in the VOCABULARY table, if the site ships one."""
+        """Vocabulary release recorded in the VOCABULARY table.
+
+        Returns:
+            The version string, or None if the site ships no VOCABULARY table.
+        """
         if not self.has("vocabulary"):
             return None
         row = self.connection.execute(

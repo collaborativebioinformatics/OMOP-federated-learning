@@ -1,5 +1,3 @@
-"""Per-site summaries that are safe to send to the server."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
@@ -14,8 +12,10 @@ MIN_CELL_COUNT = 5
 class SiteStats:
     """Column-wise count, sum and sum of squares, which combine into a global scaler.
 
-    These three are safe to exchange because none of them is any individual's value.
-    Minima and maxima are not included for exactly that reason: each is a real patient's measurement.
+    Attributes:
+        n: Observed values per column.
+        total: Sum per column.
+        total_squared: Sum of squares per column.
     """
 
     n: np.ndarray
@@ -52,7 +52,14 @@ class SiteStats:
         return np.sqrt(np.clip(variance, 0.0, None))
 
     def suppressed(self, min_cell_count: int = MIN_CELL_COUNT) -> np.ndarray:
-        """Columns backed by too few patients to release, per the site's disclosure rules."""
+        """Columns backed by too few patients to release.
+
+        Args:
+            min_cell_count: Threshold from the data-sharing agreement.
+
+        Returns:
+            A boolean mask, True where the column must be withheld.
+        """
         return self.n < min_cell_count
 
     def redacted(self, min_cell_count: int = MIN_CELL_COUNT) -> SiteStats:
@@ -73,14 +80,30 @@ def combine(stats: Iterable[SiteStats]) -> SiteStats:
 
 
 def standardize(matrix: np.ndarray, stats: SiteStats) -> np.ndarray:
-    """Centre and scale with a scaler the caller supplies, so a site never derives one from another site's data."""
+    """Centre and scale with a caller-supplied scaler.
+
+    Args:
+        matrix: Rows to scale.
+        stats: Statistics to scale by, usually the federation's combined scaler.
+
+    Returns:
+        The scaled matrix.
+    """
     std = np.where((stats.std == 0) | np.isnan(stats.std), 1.0, stats.std)
     mean = np.where(np.isnan(stats.mean), 0.0, stats.mean)
     return (matrix - mean) / std
 
 
 def prevalence(labels: Sequence[float] | np.ndarray, min_cell_count: int = MIN_CELL_COUNT) -> float | None:
-    """Outcome rate, or None when too few events to report."""
+    """Outcome rate, withheld when either class is too small to report.
+
+    Args:
+        labels: Binary labels.
+        min_cell_count: Threshold from the data-sharing agreement.
+
+    Returns:
+        The event rate, or None if either class falls below the threshold.
+    """
     array = np.asarray(labels)
     events = int(np.nansum(array))
     if events < min_cell_count or len(array) - events < min_cell_count:

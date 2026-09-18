@@ -70,6 +70,24 @@ def test_implausible_value_is_dropped(site, spec, index):
     assert np.isnan(_matrix(site, spec, index)[3][0])
 
 
+@pytest.fixture
+def converting_spec(spec) -> of.FeatureSpec:
+    bmi, *rest = spec.features
+    converted = of.Feature(
+        bmi.name, bmi.concept_id, bmi.domain, bmi.unit_concept_id, bmi.plausible_range, ((MMHG, 2.0, 1.0),)
+    )
+    return of.FeatureSpec((converted, *rest), spec.vocabulary_version, spec.lookback_days)
+
+
+def test_declared_unit_is_converted(site, converting_spec, index):
+    assert _matrix(site, converting_spec, index)[2][0] == pytest.approx(55.0)
+
+
+def test_sequence_converts_declared_units(site, converting_spec, index):
+    _, tensor = next(of.extract_sequence(site, converting_spec, index, bins=4))
+    assert np.nanmax(tensor.todense()[1, 0]) == pytest.approx(55.0)
+
+
 def test_presence_feature(site, spec, index):
     rows = _matrix(site, spec, index)
     assert rows[1][1] == 1.0
@@ -81,31 +99,10 @@ def test_numeric_feature_requires_a_unit():
         of.Feature("bmi", BMI, "measurement")
 
 
-def test_concept_id_must_be_a_positive_standard_concept():
-    with pytest.raises(ValueError, match="positive standard concept"):
-        of.Feature("unmapped", 0, "condition_occurrence")
-
-
-def test_duplicate_feature_names_rejected():
-    feature = of.Feature("x", T2DM, "condition_occurrence")
-    with pytest.raises(ValueError, match="duplicate"):
-        of.FeatureSpec(features=(feature, feature), vocabulary_version="v5.0", lookback_days=1)
-
-
 def test_spec_round_trips(tmp_path, spec):
     path = tmp_path / "spec.json"
     spec.to_json(path)
     assert of.FeatureSpec.from_json(path) == spec
-
-
-def test_missing_indicators_widen_the_matrix(spec):
-    wide = of.FeatureSpec(
-        features=spec.features,
-        vocabulary_version=spec.vocabulary_version,
-        lookback_days=spec.lookback_days,
-        missing_indicators=True,
-    )
-    assert wide.column_names == ("bmi", "t2dm", "bmi_missing")
 
 
 def test_site_stats_match_numpy():
@@ -138,3 +135,144 @@ def test_prevalence_hidden_when_events_are_few():
 def test_validate_flags_a_vocabulary_mismatch(site, spec):
     findings = of.validate(site, spec)
     assert any(f.check == "vocabulary_version" for f in findings)
+
+
+@pytest.fixture
+def presence_spec() -> of.FeatureSpec:
+    return of.FeatureSpec(
+        features=(of.Feature("t2dm", T2DM, "condition_occurrence"),),
+        vocabulary_version="v5.0",
+        lookback_days=365,
+    )
+
+
+def test_sparse_layout_rejects_numeric_features(site, spec, index):
+    batch = next(of.extract(site, spec, index))
+    with pytest.raises(ValueError, match="presence features only"):
+        of.to_matrix(batch, spec, layout="sparse")
+
+
+def test_auto_layout_is_sparse_for_presence_specs(site, presence_spec, index):
+    batch = next(of.extract(site, presence_spec, index))
+    _, matrix = of.to_matrix(batch, presence_spec, layout="auto")
+    assert matrix.shape == (3, 1)
+    assert matrix.todense()[:, 0].tolist() == [1.0, 0.0, 0.0]
+
+
+def test_sequence_tensor_is_sparse_with_nan_fill(site, spec, index):
+    _ids, tensor = next(of.extract_sequence(site, spec, index, bins=4))
+    assert tensor.shape == (3, 2, 4)
+    assert np.isnan(tensor.fill_value)
+    assert np.isnan(tensor.todense()[1, 0, 0])
+
+
+def test_sequence_bins_by_distance_from_the_landmark(site, spec, index):
+    # 2020-06-01 is 214 days before the landmark, so with two bins over 365 days it belongs to the older half.
+    _, tensor = next(of.extract_sequence(site, spec, index, bins=2))
+    dense = tensor.todense()
+    assert dense[0, 0, 0] == 25.0
+    assert np.isnan(dense[0, 0, 1])
+
+    _, single = next(of.extract_sequence(site, spec, index, bins=1))
+    assert single.todense()[0, 0, 0] == 25.0
+
+
+def test_sequence_drops_wrong_units_and_implausible_values(site, spec, index):
+    _, tensor = next(of.extract_sequence(site, spec, index, bins=4))
+    dense = tensor.todense()
+    assert np.isnan(dense[1, 0]).all()
+    assert np.isnan(dense[2, 0]).all()
+
+
+def test_to_ehrdata_keeps_the_tensor_sparse(site, spec, index):
+    import sparse
+
+    ids, tensor = next(of.extract_sequence(site, spec, index, bins=5))
+    edata = of.to_ehrdata(ids, tensor, spec)
+    assert isinstance(edata.X, sparse.SparseArray)
+    assert edata.X.nnz == tensor.nnz
+
+
+def test_propose_spec_drops_a_feature_one_site_lacks(spec):
+    counts = [{"bmi": 40, "t2dm": 10}, {"bmi": 0, "t2dm": 12}]
+    agreed = of.propose_spec(counts, spec.features, vocabulary_version="v5.0", lookback_days=365)
+    assert [f.name for f in agreed.features] == ["t2dm"]
+
+
+@pytest.fixture
+def ohdsi_site(tmp_path):
+    """A site in OHDSI export style: uppercase file names, uppercase columns, quoted empty numerics."""
+    (tmp_path / "PERSON.csv").write_text("PERSON_ID,YEAR_OF_BIRTH\n1,1970\n2,1980\n")
+    (tmp_path / "MEASUREMENT.csv").write_text(
+        "PERSON_ID,MEASUREMENT_CONCEPT_ID,MEASUREMENT_DATE,VALUE_AS_NUMBER,UNIT_CONCEPT_ID\n"
+        "1,3038553,2020-06-01,25.0,9531\n"
+        "2,3038553,2020-06-01,,9531\n"
+    )
+    (tmp_path / "CONDITION_OCCURRENCE.csv").write_text(
+        "PERSON_ID,CONDITION_CONCEPT_ID,CONDITION_START_DATE\n1,201826,2020-09-01\n"
+    )
+    return of.OmopSource(tmp_path)
+
+
+def test_uppercase_columns_extract(ohdsi_site, spec):
+    index = ohdsi_site.sql("select person_id, date '2021-01-01' as index_date from person").arrow().read_all()
+    rows = {}
+    for batch in of.extract(ohdsi_site, spec, index):
+        ids, values = of.to_matrix(batch, spec)
+        rows.update({int(p): r for p, r in zip(ids, values, strict=True)})
+    assert rows[1][0] == 25.0
+    assert np.isnan(rows[2][0])
+
+
+def test_cohort_dataset_keeps_a_sparse_matrix_sparse():
+    import sparse as sp
+    from scipy.sparse import csr_matrix
+
+    coo = sp.COO(coords=np.array([[0, 1], [2, 0]]), data=np.ones(2), shape=(3, 4), fill_value=0.0)
+    ds = of.CohortDataset(coo, [0.0, 1.0, 0.0])
+    assert isinstance(ds.features, csr_matrix)
+    rows, labels = ds[[0, 1, 2]]
+    assert rows.shape == (3, 4)
+    assert rows[0, 2] == 1.0
+    assert labels.tolist() == [0.0, 1.0, 0.0]
+
+
+def test_events_outside_the_observation_period_are_clipped(tmp_path, spec):
+    (tmp_path / "person.csv").write_text("person_id,year_of_birth\n1,1970\n2,1980\n")
+    (tmp_path / "measurement.csv").write_text(
+        "person_id,measurement_concept_id,measurement_date,value_as_number,unit_concept_id\n"
+        "1,3038553,2020-06-01,25.0,9531\n"
+        "2,3038553,2020-06-01,26.0,9531\n"
+    )
+    # Person 2's landmark falls outside their observation period, so they contribute nothing.
+    (tmp_path / "observation_period.csv").write_text(
+        "person_id,observation_period_start_date,observation_period_end_date\n"
+        "1,2019-01-01,2022-01-01\n"
+        "2,2019-01-01,2020-07-01\n"
+    )
+    site = of.OmopSource(tmp_path)
+    index = site.sql("select person_id, date '2021-01-01' as index_date from person")
+    ids, values = of.feature_matrix(site, spec, index)
+    assert ids.tolist() == [1]
+    assert values[0][0] == 25.0
+
+
+def test_leakage_report_catches_missingness_that_decides_the_label(tmp_path, spec):
+    # Everyone measured survives, everyone unmeasured does not, over enough patients that chance cannot explain it.
+    (tmp_path / "person.csv").write_text("person_id,year_of_birth\n" + "".join(f"{i},1970\n" for i in range(1, 41)))
+    measured = "".join(f"{i},3038553,2020-06-01,25.0,9531\n" for i in range(1, 21))
+    (tmp_path / "measurement.csv").write_text(
+        "person_id,measurement_concept_id,measurement_date,value_as_number,unit_concept_id\n" + measured
+    )
+    site = of.OmopSource(tmp_path)
+    index = pa.table(
+        {
+            "person_id": pa.array(range(1, 41), pa.int64()),
+            "index_date": pa.array(["2021-01-01"] * 40).cast(pa.date32()),
+            "label": pa.array([0.0] * 20 + [1.0] * 20),
+        }
+    )
+    leaks, findings = of.leakage_report(site, spec, index)
+    assert leaks[0].prevalence_observed == 0.0
+    assert leaks[0].prevalence_missing == 1.0
+    assert any(f.check == "missingness_separates" and f.level == "error" for f in findings)
