@@ -1,6 +1,6 @@
 # Concordia
 
-*Project 5 “Everything OMOP”, collaborativebioinformatics hackathon, Copenhagen 2026*
+*Project 5 of the collaborativebioinformatics hackathon, Copenhagen 2026*
 
 **ETL pipeline and federated learning framework for OMOP Common Data Model data.**
 
@@ -117,7 +117,7 @@ A real NVFlare job over the same cohort with three clients takes 42 seconds for 
 
 ### Slides
 
-- [`presentation/OMOPFLARE.pdf`](presentation/OMOPFLARE.pdf): OMOPFLARE slides
+- [`presentation/concordia_slides.pdf`](presentation/concordia_slides.pdf): Concordia slides
 - [`presentation/midterm_slides.pdf`](presentation/midterm_slides.pdf): midterm presentation
 - [`presentation/Method_slides.pdf`](presentation/Method_slides.pdf): methods
 
