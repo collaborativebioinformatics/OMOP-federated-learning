@@ -33,14 +33,14 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
 **Goal:** Identify fields with unexpected or excessive nulls that could indicate ETL failures.
 
 **Steps:**
-- Run **Data Quality Dashboard (DQD)** — it includes a full set of *Completeness* checks that flag high null rates on required or clinically important fields (e.g., `condition_concept_id`, `measurement_date`).
+- Run **Data Quality Dashboard (DQD)**, it includes a full set of *Completeness* checks that flag high null rates on required or clinically important fields (e.g., `condition_concept_id`, `measurement_date`).
 - Spot-check NOT NULL fields per the OMOP CDM spec (e.g., `person_id`, `visit_occurrence_id` where required) with simple SQL:
   ```sql
   SELECT COUNT(*) AS null_count
   FROM condition_occurrence
   WHERE condition_concept_id IS NULL;
   ```
-- Compare missingness rates against source data (via **White Rabbit** profiling) — a jump in nulls post-ETL usually means a mapping or transformation bug, not a true data gap.
+- Compare missingness rates against source data (via **White Rabbit** profiling), a jump in nulls post-ETL usually means a mapping or transformation bug, not a true data gap.
 - Set thresholds (e.g., flag if >5% missing on key fields) and track over time.
 
 **Tools:** DQD (primary), White Rabbit (source comparison)
@@ -51,14 +51,14 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
 **Goal:** Confirm the CDM instance has the full expected table set and none are empty/dropped during ETL.
 
 **Steps:**
-- Check the schema against the OMOP CDM DDL for your target version (5.3 / 5.4) — confirm every required table exists.
+- Check the schema against the OMOP CDM DDL for your target version (5.3 / 5.4), confirm every required table exists.
 - Run row counts per table; flag any core clinical table (person, visit_occurrence, condition_occurrence, drug_exposure, etc.) that's unexpectedly empty.
   ```sql
   SELECT table_name, COUNT(*) 
   FROM information_schema.tables ...
   -- or loop row counts per table
   ```
-- **Achilles** is useful here too — it generates descriptive stats across the *entire* CDM, so a missing/empty table shows up immediately as zero counts in its output.
+- **Achilles** is useful here too, it generates descriptive stats across the *entire* CDM, so a missing/empty table shows up immediately as zero counts in its output.
 
 **Tools:** Achilles, manual schema/DDL check
 
@@ -74,7 +74,7 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
   - `death_date` not before other clinical events
   - `*_start_date` not after `*_end_date`
   - Event dates fall within the person's `observation_period`
-- DQD runs many of these automatically under Plausibility — no need to write all the SQL by hand.
+- DQD runs many of these automatically under Plausibility, no need to write all the SQL by hand.
 
 **Tools:** DQD (Plausibility checks), targeted SQL for date logic
 
@@ -84,14 +84,14 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
 **Goal:** Measure how much source data was successfully mapped to standard OMOP concepts vs. left unmapped.
 
 **Steps:**
-- Calculate the % of records with `concept_id = 0` (unmapped) per domain table — high rates signal vocabulary/mapping gaps.
+- Calculate the % of records with `concept_id = 0` (unmapped) per domain table, high rates signal vocabulary/mapping gaps.
   ```sql
   SELECT 
     SUM(CASE WHEN condition_concept_id = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS pct_unmapped
   FROM condition_occurrence;
   ```
 - Review mapping decisions in **Usagi** for any source codes marked low-confidence or manually reviewed.
-- Use **Achilles Heel** — it explicitly flags high proportions of unmapped (`concept_id = 0`) records as a data quality warning.
+- Use **Achilles Heel**, it explicitly flags high proportions of unmapped (`concept_id = 0`) records as a data quality warning.
 - Track mapping rate by table/domain over time; a sudden drop after an ETL update usually means a vocabulary version mismatch or broken mapping step.
 
 **Tools:** Achilles / Achilles Heel, Usagi, custom SQL
@@ -103,6 +103,6 @@ A practical QC pass for a newly converted OMOP CDM dataset, organized around fou
 2. Run **Achilles + Achilles Heel** for descriptive stats and flagged warnings
 3. Run **DQD** for the full Conformance / Completeness / Plausibility report (covers missingness + date logic)
 4. Pull mapping rate stats (concept_id = 0) per table
-5. Document accepted/known issues — not everything flagged needs to be "fixed"; some reflect genuine source data limitations
+5. Document accepted/known issues, not everything flagged needs to be "fixed"; some reflect genuine source data limitations
 
 

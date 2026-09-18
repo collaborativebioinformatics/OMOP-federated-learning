@@ -217,3 +217,44 @@ def test_cohort_dataset_keeps_a_sparse_matrix_sparse():
     assert rows.shape == (3, 4)
     assert rows[0, 2] == 1.0
     assert labels.tolist() == [0.0, 1.0, 0.0]
+
+
+def test_events_outside_the_observation_period_are_clipped(tmp_path, spec):
+    (tmp_path / "person.csv").write_text("person_id,year_of_birth\n1,1970\n2,1980\n")
+    (tmp_path / "measurement.csv").write_text(
+        "person_id,measurement_concept_id,measurement_date,value_as_number,unit_concept_id\n"
+        "1,3038553,2020-06-01,25.0,9531\n"
+        "2,3038553,2020-06-01,26.0,9531\n"
+    )
+    # Person 2's landmark falls outside their observation period, so they contribute nothing.
+    (tmp_path / "observation_period.csv").write_text(
+        "person_id,observation_period_start_date,observation_period_end_date\n"
+        "1,2019-01-01,2022-01-01\n"
+        "2,2019-01-01,2020-07-01\n"
+    )
+    site = of.OmopSource(tmp_path)
+    index = site.sql("select person_id, date '2021-01-01' as index_date from person")
+    ids, values = of.design_matrix(site, spec, index)
+    assert ids.tolist() == [1]
+    assert values[0][0] == 25.0
+
+
+def test_leakage_report_catches_missingness_that_decides_the_label(tmp_path, spec):
+    # Everyone measured survives, everyone unmeasured does not, over enough patients that chance cannot explain it.
+    (tmp_path / "person.csv").write_text("person_id,year_of_birth\n" + "".join(f"{i},1970\n" for i in range(1, 41)))
+    measured = "".join(f"{i},3038553,2020-06-01,25.0,9531\n" for i in range(1, 21))
+    (tmp_path / "measurement.csv").write_text(
+        "person_id,measurement_concept_id,measurement_date,value_as_number,unit_concept_id\n" + measured
+    )
+    site = of.OmopSource(tmp_path)
+    index = pa.table(
+        {
+            "person_id": pa.array(range(1, 41), pa.int64()),
+            "index_date": pa.array(["2021-01-01"] * 40).cast(pa.date32()),
+            "label": pa.array([0.0] * 20 + [1.0] * 20),
+        }
+    )
+    leaks, findings = of.leakage_report(site, spec, index)
+    assert leaks[0].prevalence_observed == 0.0
+    assert leaks[0].prevalence_missing == 1.0
+    assert any(f.check == "missingness_separates" and f.level == "error" for f in findings)

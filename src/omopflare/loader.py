@@ -8,7 +8,7 @@ import torch
 from scipy.sparse import csr_matrix
 from torch.utils.data import BatchSampler, DataLoader, Dataset, IterableDataset, RandomSampler, SequentialSampler
 
-from .features import Index, Layout, as_table, extract, to_matrix
+from .features import Index, Layout, as_table, design_query, extract, to_matrix
 from .source import OmopSource
 from .spec import FeatureSpec
 from .stats import SiteStats, standardize
@@ -124,26 +124,37 @@ def site_statistics(
     *,
     batch_size: int = 50_000,
 ) -> SiteStats:
-    """Summarise a site in one streaming pass, without holding the cohort in memory.
+    """Summarise a site with SQL aggregates, without building the design matrix.
 
     Args:
         source: The site to read from.
         spec: The frozen feature schema.
-        index: Table with ``person_id`` and ``index_date``.
-        batch_size: Rows per extraction batch.
+        index: SQL, a duckdb relation or an Arrow table with ``person_id`` and ``index_date``.
+        batch_size: Unused, kept so callers that tuned extraction do not break.
 
     Returns:
         Count, sum and sum of squares per column, safe to send to the server.
     """
-    index = as_table(source, index)
-    total: SiteStats | None = None
-    for batch in extract(source, spec, index, batch_size=batch_size):
-        _, matrix = to_matrix(batch, spec, layout="dense")
-        stats = SiteStats.from_matrix(matrix)
-        total = stats if total is None else total + stats
-    if total is None:
+    inner = design_query(source, spec, index)
+    aggregates = []
+    for position in range(len(spec.features)):
+        alias = f"f{position}"
+        aggregates += [f"count({alias})", f"sum({alias})", f"sum({alias} * {alias})"]
+    if spec.missing_indicators:
+        for position, feature in enumerate(spec.features):
+            if not feature.is_numeric:
+                continue
+            missing = f"case when f{position} is null then 1.0 else 0.0 end"
+            aggregates += ["count(*)", f"sum({missing})", f"sum({missing})"]
+    row = source.connection.execute(f"select {', '.join(aggregates)} from ({inner})").fetchone()
+    if row is None:
         raise ValueError("the index table selected no people")
-    return total
+    triples = np.array(row, dtype=np.float64).reshape(-1, 3)
+    return SiteStats(
+        n=np.nan_to_num(triples[:, 0]).astype(np.int64),
+        total=np.nan_to_num(triples[:, 1]),
+        total_squared=np.nan_to_num(triples[:, 2]),
+    )
 
 
 def dataloader(
