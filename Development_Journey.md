@@ -69,15 +69,50 @@ Team 1 was able to provide Team 2 with data and the federated analysis was able 
 ## Assessing work done by Thursday afternoon
 The decisions made by the teams allowed them to create a very simple working prototype early. 
 
-## A data protection perspective
-In a real-world federated analysis involving patient data, personal data residing on a client would remain on that
-client. The server would not hold any personal data. Clients do not communicate with each other at all. The only 
-data transfers in the system occur between server and client, and include only two items:
-1. a copy of the model
-2. a matrix of model weights
+## Exploring how to run a client within a Biobank cloud environment
+Initially, the federated analysis prototype relied on using a server and clients that were run locally
+on the team members' laptops. We wanted to evolve the prototype such that at least one client would
+operate within a Trusted Research Environment (TRE). We chose to use data created by the HUNT Study 
+Cloud.
 
-The model would not contain personal data. The matrix of model weights contains only columns of numeric data. The 
-column field names would generally have no meaning, except for the model. When the models match the matrix value to 
-a column name, that would not likely describe a low cell count (e.g. there are only 2 people who have rare disease X).
-The results produced by the system would only come from the server, and not any of the clients. Those results would
-describe summary results that are made by combining evolving matrices of model weights over multiple iterations.
+Although the HUNT data sets we wanted to use were synthetic, the HUNT Study Cloud currently maintains a
+policy that no data can leave its environment. Therefore, we needed to create a client that
+ran within the HUNT Study Cloud. This presents an interesting governance issue, about the ease with 
+which synthetic data that is based on cohort records can be exported from a TRE. It would be interesting
+to know whether the restriction owes to data protection or IP concerns.
+
+We were required to submit an application for temporary access. It requires applicants to provide their
+names and institutions. The application also required a PI to be specified. Fortunately, the PI for 
+our application was also one of the Hackathon organisers.
+
+Next, we created an AWS box in which we could create a NVFLARE client. That setup required us to 
+ask the Hunt Study Cloud to assign an IP address. 
+
+## Trying to make OMOP mapping solutions work within a TRE
+Another issue we considered was trying to make OMOP mapping solutions work within a TRE. Some 
+mapping solutions rely on having access to powerful LLMs and thousands of codes. Often these are 
+managed through Internet-enabled services that would not be accessible within a TRE.
+
+One approach would be to invest in solutions that would operate entirely within containers. In the 
+context of the federated analysis prototype, it may be worth investigating whether clients could 
+somehow submit a collection of unique codes from their data sets. The server would combine them and
+then send just the codes to an existing OMOP mapping service. The server would then provide the 
+list of all OMOP mappings as part of the data contract for all clients.
+
+## Benefits of using agentic AI to produce ETL code that links Athena and Synthea
+One concern in the project had been trying to have an ETL solution for producing OMOP-ed data that would
+allow research data to be kept onsite.
+
+Initially, there was a great preference for a rule-based executable with some language capabilities that 
+would be easy to ship. However, this approach was difficult to do: there are multiple tools available to 
+support mapping health data to OMOP, but they each require effort to setup use and evaluate. Given the time
+constraints of the hackathon, we began to favour the use of agentic AI solutions that would construct the 
+ETL code that would connect Athena controlled vocabularies used in OMOP with Synthea, a tool used to make
+synthetic health data sets.
+
+OHDSI publishes its own solution that links Athena with OMOP. However we found that a solution which used
+an AI agent and skills could produce ETL that had comparable results. The ETL solution made use of DuckDB,
+which provided much better performance than had the transformation code relied on PostgreSQL.
+
+For the data processing it used DuckDB which increased the computing speed a lot more than it would have
+with postgress.
