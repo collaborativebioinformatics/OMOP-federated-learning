@@ -12,6 +12,27 @@ We automated that step.
 Raw data in, harmonised OMOP out, quality controlled, then trained across sites without a record leaving its institution.
 The barrier to collaboration stops being technical and becomes a decision.
 
+## Quickstart
+
+Subproject 1, raw Synthea data of one site to OMOP, then checked against the contract:
+
+```bash
+pip install -r omop_skill/requirements.txt
+python omop_skill/scripts/run_mapping.py --mapping omop_skill/mappings/synthea_3.3.0.yaml --source synthea_cohorts/cohort_2/data/source_compact/site_a --out omop_skill/output/site_a
+python omop_skill/scripts/validate_contract.py omop_skill/output/site_a --contract omop_skill/contract_rev1.yaml
+```
+
+Subproject 2, federated training over the five sites of `cohort_2`:
+
+```bash
+pip install -e .
+python examples/omop_t2dm/run.py --sites synthea_cohorts/cohort_2/data/omop
+```
+
+A full NVFlare job is in [`src/omopflare/README.md`](src/omopflare/README.md).
+
+## Project steps
+
 ```mermaid
 %%{init: {
   "flowchart": {
@@ -114,24 +135,7 @@ A real NVFlare job over the same cohort with three clients takes 42 seconds for 
 | `presentation/`, `docs/` | Slides and project page |
 | [`plan.md`](plan.md), [`Development_Journey.md`](Development_Journey.md) | The plan, and how the project got here |
 
-## Quickstart
 
-Subproject 1, raw Synthea data of one site to OMOP, then checked against the contract:
-
-```bash
-pip install -r omop_skill/requirements.txt
-python omop_skill/scripts/run_mapping.py --mapping omop_skill/mappings/synthea_3.3.0.yaml --source synthea_cohorts/cohort_2/data/source_compact/site_a --out omop_skill/output/site_a
-python omop_skill/scripts/validate_contract.py omop_skill/output/site_a --contract omop_skill/contract_rev1.yaml
-```
-
-Subproject 2, federated training over the five sites of `cohort_2`:
-
-```bash
-pip install -e .
-python examples/omop_t2dm/run.py --sites synthea_cohorts/cohort_2/data/omop
-```
-
-A full NVFlare job is in [`src/omopflare/README.md`](src/omopflare/README.md).
 
 ## Limits
 
