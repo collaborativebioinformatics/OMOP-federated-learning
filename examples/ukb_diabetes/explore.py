@@ -126,6 +126,7 @@ def funnel(axis: plt.Axes, stages: dict[str, int]) -> None:
     axis.set_yticks(range(len(names)))
     axis.set_yticklabels(names, fontsize=8)
     axis.invert_yaxis()
+    axis.set_ylabel("cohort rule", fontsize=9)
     axis.set_xscale("log")
     axis.set_xlabel("people (log scale)", fontsize=9)
     for position, value in enumerate(values):
@@ -152,36 +153,10 @@ def case_rate(axis: plt.Axes, edata: EHRData) -> None:
     axis.set_yticks(positions)
     axis.set_yticklabels([name.replace("centre_", "") for name in rates.index], fontsize=7)
     axis.set_ylim(len(rates) - 0.5, -1.0)
+    axis.set_ylabel("site", fontsize=9)
     axis.set_xlabel("incident cases (%)", fontsize=9)
     axis.set_xlim(0, max(rates.max() * 1.25, pooled * 2))
     axis.set_title("Case rate by site", fontsize=10)
-
-
-def divergence(axis: plt.Axes, differences: pd.DataFrame, *, band: float = 0.1) -> None:
-    """Plot how far each site's feature means sit from the pooled mean.
-
-    Args:
-        axis: Axes to draw on.
-        differences: Sites by features, in pooled standard deviations.
-        band: Half-width of the region where sites are treated as indistinguishable.
-    """
-    features = list(differences.columns)
-    axis.axvline(0.0, color=MUTED, linewidth=1)
-    for edge in (-band, band):
-        axis.axvline(edge, color=MUTED, linewidth=0.8, linestyle=":")
-    for position, feature in enumerate(features):
-        values = differences[feature].to_numpy()
-        axis.scatter(values, np.full(values.size, position), s=28, color=SITE, edgecolor="white", linewidth=0.5)
-    reach = float(np.nanmax(np.abs(differences.to_numpy())))
-    axis.set_yticks(range(len(features)))
-    axis.set_yticklabels(features, fontsize=8)
-    axis.set_ylim(-0.6, len(features) - 0.4)
-    axis.set_xlim(-max(reach * 1.3, band * 2), max(reach * 1.3, band * 2))
-    axis.set_xlabel("site mean minus pooled mean (SD)", fontsize=9)
-    axis.text(
-        0.98, 0.06, f"furthest site {reach:.2f} SD", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED
-    )
-    axis.set_title("How far the sites sit apart", fontsize=10)
 
 
 def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> None:
@@ -254,19 +229,17 @@ def main() -> None:
     differences = standardised_difference(edata)
     print(differences.round(3).to_string())
 
-    first, second = spec.features[0], spec.features[1]
-    figure, axes = plt.subplots(2, 3, figsize=(16, 8.0))
+    second = spec.features[1]
+    figure, axes = plt.subplots(2, 2, figsize=(11, 8.0))
     funnel(axes[0, 0], stages)
     case_rate(axes[0, 1], edata)
-    divergence(axes[0, 2], differences)
     plausibility(axes[1, 0], raw_values(paths, second), second)
-    separation(axes[1, 1], edata, first.name)
-    separation(axes[1, 2], edata, second.name)
+    separation(axes[1, 1], edata, second.name)
     for axis in axes.ravel():
         axis.spines[["top", "right"]].set_visible(False)
     figure.suptitle(args.title, fontsize=12)
     figure.tight_layout()
-    figure.savefig(args.out, dpi=170)
+    figure.savefig(args.out, dpi=300)
     print(f"wrote {args.out}")
 
 

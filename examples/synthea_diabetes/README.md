@@ -10,7 +10,7 @@ cd ../ukb_diabetes
 python explore.py --sites ../../synthea_cohorts/cohort_2/data/omop \
   --out ../synthea_diabetes/cohort_overview.png --title "Synthea cohort_2, before any modelling"
 python run.py --sites ../../synthea_cohorts/cohort_2/data/omop --job synthea_fedavg --tag synthea
-python figures.py --results results_synthea.json --out ../synthea_diabetes/federated_vs_local.png \
+python figures.py --results ../synthea_diabetes/results.json --out ../synthea_diabetes/federated_vs_local.png \
   --title "Incident type 2 diabetes across Synthea sites"
 ```
 

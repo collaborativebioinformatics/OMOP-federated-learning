@@ -111,7 +111,7 @@ def draw(results: dict, out: Path, title: str) -> None:
         axis.spines[["top", "right"]].set_visible(False)
     figure.suptitle(title, fontsize=12)
     figure.tight_layout()
-    figure.savefig(out, dpi=200)
+    figure.savefig(out, dpi=300)
     print(f"wrote {out}")
 
 
