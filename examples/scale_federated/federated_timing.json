@@ -1,0 +1,8 @@
+{
+  "people": 1000000,
+  "measurement_rows": 3385500000,
+  "sites": 3,
+  "rounds": 5,
+  "wall_seconds": 41.76172498986125,
+  "seconds_per_round": 8.35234499797225
+}
