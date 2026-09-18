@@ -47,8 +47,11 @@ class OmopSource:
         for table in CDM_TABLES:
             if (path := by_stem.get(table)) is None:
                 continue
-            reader = "read_parquet" if path.suffix == ".parquet" else "read_csv"
-            self.connection.execute(f"create or replace view {table} as select * from {reader}('{path}')")
+            if path.suffix == ".parquet":
+                scan = f"read_parquet('{path}')"
+            else:
+                scan = f"read_csv('{path}', sample_size = -1)"
+            self.connection.execute(f"create or replace view {table} as select * from {scan}")
             found[table] = path
         if "person" not in found:
             raise FileNotFoundError(f"no person table under {self.path}")
