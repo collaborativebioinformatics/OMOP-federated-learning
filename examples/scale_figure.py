@@ -85,6 +85,21 @@ def main() -> None:
             axis.spines[side].set_color(GRID)
         axis.tick_params(colors=MUTED, labelsize=9)
 
+    federated = HERE / "scale_federated" / "federated_timing.json"
+    if federated.exists():
+        run = json.loads(federated.read_text())
+        fig.text(
+            0.5,
+            -0.04,
+            f"A real NVFlare FedAvg job over the same {run['people']:,} patients and "
+            f"{run['measurement_rows'] / 1e9:.2f}B rows, split across {run['sites']} clients: "
+            f"{run['wall_seconds']:.0f}s for {run['rounds']} rounds, "
+            f"{run['seconds_per_round']:.1f}s per round.",
+            ha="center",
+            color=MUTED,
+            fontsize=10,
+        )
+
     fig.savefig(OUT, dpi=200, bbox_inches="tight", facecolor=SURFACE)
     print(f"wrote {OUT}")
 
