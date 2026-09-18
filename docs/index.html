@@ -174,7 +174,7 @@ const STAGES = [
     h:"Any tabular health data",
     p:["Synthea generates the synthetic cohorts. UK Biobank and MIMIC-IV bring real records.",
        "None of them arrive in OMOP."],
-    why:"synthea_cohorts/, ukb_omop_agent/" },
+    why:"synthea_cohorts/, omop_skill/review/" },
   { k:"02", t:"Mapping", m:"skill + agent", c:"var(--orange)",
     h:"Source to OMOP, reviewed by a human",
     p:["A Claude skill profiles the source with DuckDB, writes a YAML mapping, runs it and validates the result against the contract.",

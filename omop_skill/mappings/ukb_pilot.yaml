@@ -1,5 +1,5 @@
 # UK Biobank wide-format extract -> OMOP tables of contract/data_contract.md (version 2026-09-17).
-# Mirrors the pilot scope of ukb_omop_agent/ukb/map_ukb_to_omop.py: sex, year of birth, BMI,
+# Mirrors the pilot scope of the former UKB pilot mapper (map_ukb_to_omop.py): sex, year of birth, BMI,
 # systolic blood pressure, and type 2 diabetes (ICD-10 E11.*) rolled up to one SNOMED concept.
 #
 # UKB source columns are named "<field id>-<instance>.<array>" (Showcase field, visit instance,

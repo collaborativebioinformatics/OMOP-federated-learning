@@ -1,6 +1,6 @@
 # UKB-to-OMOP mapping agent
 
-Work only on the UK Biobank synthetic extract and the local OMOP vocabulary supplied by the user. This folder is independent of `omop_skill`.
+Work only on the UK Biobank synthetic extract and the local OMOP vocabulary supplied by the user. This is the vocabulary review route of `omop_skill`: sources whose codes need a reviewed vocabulary mapping, such as UK Biobank ICD-10.
 
 1. Inspect the source schema and pair each diagnosis field `41270-i.a` with date field `41280-i.a`. Retain the original code and EID for traceability. Never infer a diagnosis date from another array position.
 2. Identify the source coding system before proposing an OMOP target. UKB field 41270 is ICD-10 coded; do not silently treat it as ICD10CM. If the matching source vocabulary is absent from Athena, report that limitation and leave targets blank.
@@ -8,7 +8,7 @@ Work only on the UK Biobank synthetic extract and the local OMOP vocabulary supp
 4. Keep unmapped source diagnoses with `condition_concept_id = 0` and their `condition_source_value`. Report mapping coverage using dated source records and distinct source codes as separate denominators.
 5. Run `general_agent.py qc`, `plot_qc.py`, and the tests after changing a mapping. The current QC replays the selected input and review file and supports multiple approved targets. Treat coverage as technical annotation, not clinical correctness. Review broad rollups and date/provenance assumptions separately.
 
-Use `README.md` for commands and `general_agent.py` for the configuration-driven inspect/apply/QC workflow. The narrower `agent.py` is retained as a legacy pilot. Keep source-specific assumptions in a versioned specification. Do not modify `omop_skill` or its separate contract as a shortcut.
+Use `README.md` for commands and `general_agent.py` for the configuration-driven inspect/apply/QC workflow. Keep source-specific assumptions in a versioned specification. Do not change `omop_skill/contract.yaml` or the Synthea mappings as a shortcut.
 
 ## Conversational workflow in Codex
 

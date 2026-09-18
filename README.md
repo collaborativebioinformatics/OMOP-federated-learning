@@ -76,7 +76,7 @@ The project page [`docs/index.html`](docs/index.html) has the interactive figure
 | Against OHDSI ETL-Synthea | 254,882 of 254,891 measurement values identical. Every diagnosis identical. Persons identical except race for 11 patients, a race the contract maps and ETL-Synthea leaves at 0. |
 | Speed | 8 seconds for 2.1 GB of raw data, no database server. |
 | Quality control | Contract check and QC report pass. The value analysis found what both conversions let through: Synthea's HbA1c has a median of 3.9 %, and 9 LDL values are negative. |
-| UK Biobank | Synthetic UKB extract to OMOP with Athena proposals, human approval and visual QC in [`ukb_omop_agent`](ukb_omop_agent/README.md). |
+| UK Biobank | Synthetic UKB extract to OMOP with Athena proposals, human approval and visual QC in [`omop_skill/review`](omop_skill/review/README.md). |
 
 Method and all numbers: [`omop_skill/RESULTS.md`](omop_skill/RESULTS.md).
 
@@ -102,9 +102,9 @@ A real NVFlare job over the same cohort with three clients takes 42 seconds for 
 
 | Path | What |
 | --- | --- |
-| [`omop_skill/`](omop_skill/README.md) | Subproject 1: turns raw source data into the contract's OMOP tables. Profile, mapping, contract check, QC report, comparison with ETL-Synthea. |
-| [`.claude/skills/omop-etl/`](.claude/skills/omop-etl/SKILL.md) | The skill instructions an AI agent follows |
-| [`ukb_omop_agent/`](ukb_omop_agent/README.md) | UK Biobank to OMOP: Athena proposals, human approval, visual QC |
+| [`omop_skill/`](omop_skill/README.md) | Subproject 1: turns raw source data into the contract's OMOP tables and checks them. Route A: YAML mapping (Synthea). Route B: vocabulary review with human approval (UK Biobank). |
+| [`omop_skill/SKILL.md`](omop_skill/SKILL.md), [`AGENTS.md`](AGENTS.md) | Instructions for any AI agent. Claude Code finds the skill through `.claude/skills/omop-etl/`. |
+| [`omop_skill/review/`](omop_skill/review/README.md) | Route B for UK Biobank: Athena proposals, human approval, visual QC |
 | [`src/omopflare/`](src/omopflare/README.md) | Subproject 2: OMOP features for federated learning with NVFlare |
 | `examples/` | `omop_t2dm` (federated type 2 diabetes risk), benchmarks and their figures, NVFlare samples, earlier demos |
 | `synthea_cohorts/` | Synthetic cohorts, one folder per generation method |

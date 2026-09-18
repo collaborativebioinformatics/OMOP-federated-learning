@@ -17,21 +17,21 @@ The mapping configuration is [`../specs/ukb_ad_pd_t2d_labs_v1.json`](../specs/uk
 From the repository root, run the existing Python workflow through the small Bash wrapper. Set `RUN_DIR` once so every step uses the same new output directory:
 
 ```bash
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh prepare
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh prepare
 export RUN_DIR=solvi/results/my_new_run
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh inspect
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh propose
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh inspect
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh propose
 # Review proposed_disease_targets.csv and mapping_review.csv in this run.
 # Record explicit approval of the reviewed targets before applying.
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh apply
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh qc
-PYTHON=/opt/anaconda3/bin/python3 bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh plot
-bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh summary
-PYTHON=/opt/anaconda3/bin/python3 bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh disease-qc
-PYTHON=/opt/anaconda3/bin/python3 bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh visual-qc
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh apply
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh qc
+PYTHON=/opt/anaconda3/bin/python3 bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh plot
+bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh summary
+PYTHON=/opt/anaconda3/bin/python3 bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh disease-qc
+PYTHON=/opt/anaconda3/bin/python3 bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh visual-qc
 ```
 
-`prepare` reuses the existing 10,000-row UKB sample, downloads only the matching 10,000 rows of `real_fields2.tsv` when absent, checks EID alignment, and uses `make_ukb_subset.py` to create `solvi/data/ukb_10000/ukb_subset.tsv`. `inspect`, `apply`, and `qc` call the existing `ukb_omop_agent/general_agent.py`. `propose` writes one disease-focused Athena target per diagnosis code but **does not approve it**. Review the exact targets in `proposed_disease_targets.csv`. If the user explicitly approves the whole saved proposal, run `python3 ukb_omop_agent/ukb/approve_proposals.py --run "$RUN_DIR" --approve-proposed --evidence "user's stated approval"`; this checks the proposals against the Athena candidates and records the decisions. Otherwise edit `mapping_review.csv` to record only individually approved targets. Use a **fresh `RUN_DIR` for each inspection**; the commands reject a changed source, spec, diagnosis scope, or vocabulary. Set `UKB_SAMPLE_DIR` and `ATHENA_DIR` if your local paths differ. `plot` needs Matplotlib.
+`prepare` reuses the existing 10,000-row UKB sample, downloads only the matching 10,000 rows of `real_fields2.tsv` when absent, checks EID alignment, and uses `make_ukb_subset.py` to create `solvi/data/ukb_10000/ukb_subset.tsv`. `inspect`, `apply`, and `qc` call the existing `omop_skill/review/general_agent.py`. `propose` writes one disease-focused Athena target per diagnosis code but **does not approve it**. Review the exact targets in `proposed_disease_targets.csv`. If the user explicitly approves the whole saved proposal, run `python3 omop_skill/review/ukb/approve_proposals.py --run "$RUN_DIR" --approve-proposed --evidence "user's stated approval"`; this checks the proposals against the Athena candidates and records the decisions. Otherwise edit `mapping_review.csv` to record only individually approved targets. Use a **fresh `RUN_DIR` for each inspection**; the commands reject a changed source, spec, diagnosis scope, or vocabulary. Set `UKB_SAMPLE_DIR` and `ATHENA_DIR` if your local paths differ. `plot` needs Matplotlib.
 
 The current disease-focused run is in `solvi/results/run_004_observation_period/`. The user approved all 19 proposed ICD-10 source-code mappings in the previous run; the proposal file was unchanged, and `mapping_review.csv` records the carried-forward approvals. `analysis_summary.csv` reports AD (133 participants; 135 of 135 diagnosis records mapped), PD (38; 38 of 38), and T2D (185; 185 of 185). Each of the five assays has 10,356 of 10,356 source values mapped across 10,000 participants. Repeat assessments explain why an assay has more values than participants. Overall, 358 of 358 selected diagnosis records and 51,780 of 51,780 selected assay values have standard OMOP concept IDs; structural QC passed. The 10,000 Observation Period rows have type `32880`; 9,302 cover only one day. The saved `mapping_report.json` records the date rule and one-day count. **Do not use these periods as verified person-time or for incidence rates.** These percentages describe annotation coverage of the selected fields, not diagnostic accuracy or phenotype completeness. All `E11*` codes are rolled up to standard type 2 diabetes concept `201826`, so complication detail is lost.
 
@@ -43,4 +43,4 @@ The current disease-focused run is in `solvi/results/run_004_observation_period/
 
 The same command creates `visual_qc/observation_period_qc.png`, which shows period-length categories, the one-day share for the full cohort and each disease group, and checks for missing periods, invalid dates, and events outside their period. `observation_period_summary.csv` and `observation_period_checks.json` contain the underlying numbers. In the current run, 9,302 of 10,000 periods are one day, while none of the AD, PD, or T2D group periods is one day because the selected diagnosis dates extend their event spans. This illustrates how strongly the technical period depends on which events were retained; it does **not** establish observed person-time or true UKB follow-up. PNG and PDF versions of all figures are saved locally.
 
-`solvi/data/` and `solvi/results/` are local generated outputs and are ignored by Git; reusable code and configuration live under `ukb_omop_agent/`.
+`solvi/data/` and `solvi/results/` are local generated outputs and are ignored by Git; reusable code and configuration live under `omop_skill/review/`.
