@@ -2,7 +2,7 @@
 
 **ETL pipeline and federated learning framework for OMOP Common Data Model data.**
 
-Convert any biobank dataset to OMOP, validate it, and run federated learning across sites — 
+Convert a biobank dataset to OMOP, validate it, and run federated learning across sites — 
 all in one reproducible pipeline.
 
 ```mermaid
