@@ -1,5 +1,7 @@
 # Project 5: Everything OMOP
 
+**ETL pipeline and federated learning framework for OMOP Common Data Model data.**
+
 ```mermaid
 %%{init: {
   "flowchart": {
