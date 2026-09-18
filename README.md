@@ -3,31 +3,31 @@
 ```mermaid
 flowchart TB
 
-subgraph SP1["Subproject 1: Any biobank to OMOP"]
+subgraph SP1["Subproject 1:<br/>Any biobank to OMOP"]
     direction LR
-    A["Define minimal common tables and fields"]
-    B["Collect ~2 datasets with existing OMOP conversions"]
-    C["Build biobank schema to OMOP CDM POC"]
-    D{"Reproduces published conversion?"}
-    E["Convert ~3 datasets not yet in OMOP"]
+    A["Define minimal common<br/>tables and fields"]
+    B["Collect ~2 datasets with<br/>existing OMOP conversions"]
+    C["Build biobank schema to<br/>OMOP CDM POC"]
+    D{"Reproduces published<br/>conversion?"}
+    E["Convert ~3 datasets<br/>not yet in OMOP"]
 
     A --> B --> C --> D
     D -->|No: iterate| C
     D -->|Yes: primary eval passed| E
 end
 
-subgraph SP2["Subproject 2: Federated learning on OMOP"]
+subgraph SP2["Subproject 2:<br/>Federated learning on OMOP"]
     direction LR
     F["Learn NVFlare"]
-    G["Explore existing OMOP datasets"]
-    H["Define site split and FedAvg baseline"]
-    I["Build custom OMOP dataloader for NVFlare"]
-    K["Train simple linear model across simulated sites"]
+    G["Explore existing<br/>OMOP datasets"]
+    H["Define site split and<br/>FedAvg baseline"]
+    I["Build custom OMOP dataloader<br/>for NVFlare"]
+    K["Train simple linear model<br/>across simulated sites"]
 
     F --> G --> H --> I --> K
 end
 
-E -->|OMOP datasets| J["Joint pipeline: Raw biobank → OMOP → Federated training"]
+E -->|OMOP datasets| J["Joint pipeline:<br/>Raw biobank → OMOP →<br/>Federated training"]
 K -->|Dataloader and model| J
 
 classDef blue fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
