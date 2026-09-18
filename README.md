@@ -3,9 +3,9 @@
 ```mermaid
 flowchart TB
     subgraph SP1["Subproject 1: Any biobank to OMOP"]
-        A["Agree on minimal required tables<br/>and fields common to biobanks"]
-        B["Collect ~2 datasets with existing<br/>OMOP conversions, e.g. UK Biobank"]
-        C["Skill / framework POC<br/>biobank schema to OMOP CDM"]
+        A["Agree on minimal required <br/> tables and fields common to biobanks"]
+        B["Collect ~2 datasets with existing <br/> OMOP conversions, e.g. UK Biobank"]
+        C["Skill / framework POC <br/> biobank schema to OMOP CDM"]
         D{"Reproduces the published<br/>conversion?"}
         E["Convert ~3 datasets<br/>not yet in OMOP"]
         A --> B --> C --> D
