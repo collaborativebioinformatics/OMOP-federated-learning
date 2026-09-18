@@ -106,6 +106,8 @@ A real NVFlare job over the same cohort with three clients takes 42 seconds for 
 | [`.claude/skills/omop-etl/`](.claude/skills/omop-etl/SKILL.md) | The skill instructions an AI agent follows |
 | [`ukb_omop_agent/`](ukb_omop_agent/README.md) | UK Biobank to OMOP: Athena proposals, human approval, visual QC |
 | [`src/omopflare/`](src/omopflare/README.md) | Subproject 2: OMOP features for federated learning with NVFlare |
+| [`examples/ukb_diabetes/`](examples/ukb_diabetes/README.md) | Raw UK Biobank to OMOP to federated diabetes risk, end to end |
+| [`examples/synthea_diabetes/`](examples/synthea_diabetes/README.md) | The same pipeline on a cohort that has signal |
 | `examples/` | `omop_t2dm` (federated type 2 diabetes risk), benchmarks and their figures, NVFlare samples, earlier demos |
 | `synthea_cohorts/` | Synthetic cohorts, one folder per generation method |
 | [`contract/`](contract/data_contract.md) | The data contract both subprojects hand over on |
