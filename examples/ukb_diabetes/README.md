@@ -53,15 +53,20 @@ That makes it a negative control.
 Every AUROC interval covers 0.5 and the leakage report is clean.
 Single sites still report apparent signal: the eight score 0.430 to 0.575 while federated scores 0.511, and their BMI coefficients run from -0.41 to +0.65 against a federated 0.05.
 
-The overview says the same before any model runs.
-Systolic blood pressure reaches 8,242 mmHg with 280 readings at that value, so the plausible range drops 7% as sentinels.
-18% of people have no hospital record; the rest carry a median of 25 diagnoses.
+The overview says the same before any model runs, and says it about the sites too.
 
-The UMAP embeds each person's share of diagnoses per chapter, for the 39,548 with at least five codes.
-Long histories converge on the population composition and short ones scatter, which is multinomial noise.
-There are no subpopulations, because codes are drawn at random.
+| | this cohort | [Synthea `cohort_2`](../synthea_diabetes) |
+| --- | --- | --- |
+| case rate across sites | 1.6x | 7.0x |
+| worst site minus pooled mean | 0.03 SD | 0.79 SD |
+| BMI medians span | 0.28 | 4.90 |
+| BMI, cases minus controls | +0.06 SD | +0.38 SD |
+| systolic BP kept by the plausible range | 94% | 100% |
 
-For the accuracy claim, [`../synthea_diabetes`](../synthea_diabetes) runs the same scripts on data with signal.
+Eight centres within 0.03 SD of the pooled mean are eight copies of the same cohort, so there is nothing for federation to reconcile.
+Systolic blood pressure reaches 8,242 mmHg, and the plausible range drops those 6% as sentinels rather than measurements.
+
+For the accuracy claim, [`../synthea_diabetes`](../synthea_diabetes) runs the same scripts on data with signal and with sites that differ.
 
 ## Limits
 
