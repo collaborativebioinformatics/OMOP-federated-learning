@@ -70,6 +70,24 @@ def test_implausible_value_is_dropped(site, spec, index):
     assert np.isnan(_matrix(site, spec, index)[3][0])
 
 
+@pytest.fixture
+def converting_spec(spec) -> of.FeatureSpec:
+    bmi, *rest = spec.features
+    converted = of.Feature(
+        bmi.name, bmi.concept_id, bmi.domain, bmi.unit_concept_id, bmi.plausible_range, ((MMHG, 2.0, 1.0),)
+    )
+    return of.FeatureSpec((converted, *rest), spec.vocabulary_version, spec.lookback_days)
+
+
+def test_declared_unit_is_converted(site, converting_spec, index):
+    assert _matrix(site, converting_spec, index)[2][0] == pytest.approx(55.0)
+
+
+def test_sequence_converts_declared_units(site, converting_spec, index):
+    _, tensor = next(of.extract_sequence(site, converting_spec, index, bins=4))
+    assert np.nanmax(tensor.todense()[1, 0]) == pytest.approx(55.0)
+
+
 def test_presence_feature(site, spec, index):
     rows = _matrix(site, spec, index)
     assert rows[1][1] == 1.0
@@ -234,7 +252,7 @@ def test_events_outside_the_observation_period_are_clipped(tmp_path, spec):
     )
     site = of.OmopSource(tmp_path)
     index = site.sql("select person_id, date '2021-01-01' as index_date from person")
-    ids, values = of.design_matrix(site, spec, index)
+    ids, values = of.feature_matrix(site, spec, index)
     assert ids.tolist() == [1]
     assert values[0][0] == 25.0
 

@@ -19,11 +19,28 @@ Layout = Literal["dense", "sparse", "auto"]
 Index = Union[str, pa.Table, "duckdb.DuckDBPyRelation"]
 
 
+def harmonised_value(feature: Feature, column: str = "e") -> str:
+    """SQL that returns the value in the feature's pinned unit, or NULL if it cannot be converted.
+
+    Args:
+        feature: The numeric feature.
+        column: Alias of the event table in the surrounding query.
+
+    Returns:
+        A SQL expression.
+    """
+    raw = f"try_cast({column}.{VALUE_COLUMN[feature.domain]} as double)"
+    arms = [f"when {column}.unit_concept_id = {feature.unit_concept_id} then {raw}"]
+    arms += [
+        f"when {column}.unit_concept_id = {unit} then {raw} * {scale} + {offset}"
+        for unit, scale, offset in feature.conversions
+    ]
+    return f"case {' '.join(arms)} end"
+
+
 def _numeric_case(feature: Feature, alias: str) -> str:
-    value = f"try_cast(e.{VALUE_COLUMN[feature.domain]} as double)"
+    value = harmonised_value(feature)
     guards = [f"e.{CONCEPT_COLUMN[feature.domain]} = {feature.concept_id}"]
-    if feature.unit_concept_id is not None:
-        guards.append(f"e.unit_concept_id = {feature.unit_concept_id}")
     if feature.plausible_range is not None:
         low, high = feature.plausible_range
         guards.append(f"{value} between {low} and {high}")
@@ -78,7 +95,7 @@ def as_table(source: OmopSource, index: Index) -> pa.Table:
     return index.rename_columns([name.lower() for name in index.column_names])
 
 
-def design_query(source: OmopSource, spec: FeatureSpec, index: Index) -> str:
+def feature_query(source: OmopSource, spec: FeatureSpec, index: Index) -> str:
     """Build the SQL that produces one landmarked row per person.
 
     Args:
@@ -133,7 +150,7 @@ def extract(
     *,
     batch_size: int = 50_000,
 ) -> Iterator[pa.RecordBatch]:
-    """Yield design-matrix batches for the people in an index table.
+    """Yield feature-matrix batches for the people in an index table.
 
     Reads only events strictly before each landmark, within ``lookback_days``, and inside the observation period.
 
@@ -149,7 +166,7 @@ def extract(
     Raises:
         ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent from the site.
     """
-    query = design_query(source, spec, index)
+    query = feature_query(source, spec, index)
     yield from source.connection.execute(query).to_arrow_reader(batch_size)
 
 
@@ -159,7 +176,7 @@ def to_matrix(
     *,
     layout: Layout = "dense",
 ) -> tuple[np.ndarray, np.ndarray | sparse.COO]:
-    """Turn one extraction batch into person IDs and a design matrix.
+    """Turn one extraction batch into person IDs and a feature matrix.
 
     ``dense`` keeps missing values as NaN. ``sparse`` returns CSR. ``auto`` uses sparse only for presence-only specs.
 
@@ -217,7 +234,7 @@ def _to_sparse(batch: pa.RecordBatch, spec: FeatureSpec, *, presence_only: bool)
     )
 
 
-def design_matrix(
+def feature_matrix(
     source: OmopSource,
     spec: FeatureSpec,
     index: Index,
@@ -233,7 +250,7 @@ def design_matrix(
         layout: Passed to :func:`to_matrix`.
 
     Returns:
-        The person IDs and the design matrix.
+        The person IDs and the feature matrix.
 
     Raises:
         ValueError: If the index selects nobody.

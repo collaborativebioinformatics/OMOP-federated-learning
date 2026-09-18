@@ -39,6 +39,8 @@ flowchart TB
 **Subproject 2** runs federated learning over the result.
 The diagram above is the plan; `plan.md` has the schedule.
 
+A one-page summary of the whole project is in [`docs/index.html`](docs/index.html); open it in a browser.
+
 ## Layout
 
 | path | what |
@@ -66,7 +68,7 @@ spec = of.FeatureSpec(
 )
 site = of.OmopSource("/data/omop/site_a")
 of.validate(site, spec, strict=True)
-person_ids, X = of.design_matrix(site, spec, "select person_id, current_date as index_date from person")
+person_ids, X = of.feature_matrix(site, spec, "select person_id, current_date as index_date from person")
 ```
 
 A full NVFlare job is in [src/omopflare/README.md](src/omopflare/README.md).

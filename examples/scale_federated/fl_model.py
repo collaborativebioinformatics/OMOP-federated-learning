@@ -5,7 +5,7 @@ from torch import nn
 
 
 class RiskNet(nn.Module):
-    """A small classifier over an omopflare feature matrix.
+    """Classifier over an omopflare feature matrix.
 
     Args:
         n_features: Design matrix width, from ``spec.width``.

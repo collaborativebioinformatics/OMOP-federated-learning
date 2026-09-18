@@ -23,11 +23,11 @@ spec = of.FeatureSpec(
 site = of.OmopSource("/data/omop/site_a")
 of.validate(site, spec, strict=True)
 
-person_ids, X = of.design_matrix(site, spec, "select person_id, current_date as index_date from person")
+person_ids, X = of.feature_matrix(site, spec, "select person_id, current_date as index_date from person")
 ```
 
 The index is SQL, a duckdb relation or an Arrow table, and needs `person_id` and `index_date`.
-Use `of.extract` instead of `of.design_matrix` to stream batches rather than build one matrix.
+Use `of.extract` instead of `of.feature_matrix` to stream batches rather than build one matrix.
 
 ## End-to-end NVFlare job
 
@@ -147,7 +147,9 @@ NVFlare is not wrapped; anything in its docs works unchanged.
 The spec is frozen at run time because FedAvg averages weight tensors, so every site must produce the same width and column order.
 Derive it from a counting round rather than writing it blind: `concept_counts` reports suppressed per-site counts and `propose_spec` keeps what enough sites can supply.
 
-Numeric features pin a `unit_concept_id`; rows in other units are dropped, not converted.
+Numeric features pin a `unit_concept_id`.
+Other units are converted only where `conversions` declares a `(unit_concept_id, scale, offset)` triple, and dropped otherwise.
+`validate` reports which units are dropped and how many rows that costs.
 
 `validate` errors on a vocabulary mismatch, a non-standard or invalid concept, and an unmapped rate above `max_unmapped`.
 In OMOP `concept_id = 0` means present but unmapped, not absent.
@@ -184,7 +186,7 @@ Two sparse libraries, split by dimensionality: pydata/sparse for the 3D sequence
 ## Scale
 
 Tables stay on disk as duckdb views over Parquet or CSV, with concept and date filters pushed into the scan.
-Building the design matrix for 1M patients over 50M measurement rows takes 0.8s, but that is the duckdb scan alone; a training epoch over the result is the slower half.
+Building the feature matrix for 1M patients over 50M measurement rows takes 0.8s, but that is the duckdb scan alone; a training epoch over the result is the slower half.
 duckdb's buffer pool will use the memory it is given, so set `memory_limit` if that matters.
 Parquet sorted by `person_id` is fastest.
 

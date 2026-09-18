@@ -72,7 +72,7 @@ def main() -> None:
     labels = [f"{s:,}\n{rows_label(row['events'])}" for s, row in zip(sizes, throughput, strict=True)]
     right.set_xticklabels(labels)
     right.set_xlabel("patients in one site", color=MUTED, fontsize=10)
-    right.set_ylabel("seconds to build the design matrix", color=MUTED, fontsize=10)
+    right.set_ylabel("seconds to build the feature matrix", color=MUTED, fontsize=10)
     right.set_ylim(0, max(seconds) * 1.35)
     right.set_title(
         "Design matrix build time stays sub-second\nto 50M rows; the scan never leaves DuckDB",

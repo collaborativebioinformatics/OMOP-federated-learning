@@ -27,7 +27,7 @@ def load(spec: of.FeatureSpec, site: int, seed: int):
     """
     source = of.OmopSource(CDM)
     index = index_sql(site)
-    ids, X = of.design_matrix(source, spec, index)
+    ids, X = of.feature_matrix(source, spec, index)
     table = source.sql(index).arrow().read_all()
     labels = dict(zip(table.column("person_id").to_pylist(), table.column("label").to_pylist(), strict=True))
     y = np.array([labels[int(person)] for person in ids], dtype=np.float64)

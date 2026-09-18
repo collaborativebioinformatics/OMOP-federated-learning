@@ -11,7 +11,7 @@ OUT = HERE / "scale_benchmark.png"
 
 INK, MUTED, GRID, SURFACE = "#1a1a19", "#5c5c58", "#e4e4e0", "#fcfcfb"
 STAGES = {
-    "build_seconds": ("build design matrix", "#2a78d6"),
+    "build_seconds": ("build feature matrix", "#2a78d6"),
     "scan_seconds": ("duckdb scan", "#eb6834"),
     "epoch_seconds": ("training epoch", "#1baf7a"),
 }
@@ -84,6 +84,21 @@ def main() -> None:
         for side in ("left", "bottom"):
             axis.spines[side].set_color(GRID)
         axis.tick_params(colors=MUTED, labelsize=9)
+
+    federated = HERE / "scale_federated" / "federated_timing.json"
+    if federated.exists():
+        run = json.loads(federated.read_text())
+        fig.text(
+            0.5,
+            -0.04,
+            f"A real NVFlare FedAvg job over the same {run['people']:,} patients and "
+            f"{run['measurement_rows'] / 1e9:.2f}B rows, split across {run['sites']} clients: "
+            f"{run['wall_seconds']:.0f}s for {run['rounds']} rounds, "
+            f"{run['seconds_per_round']:.1f}s per round.",
+            ha="center",
+            color=MUTED,
+            fontsize=10,
+        )
 
     fig.savefig(OUT, dpi=200, bbox_inches="tight", facecolor=SURFACE)
     print(f"wrote {OUT}")
