@@ -1,0 +1,81 @@
+# UK Biobank synthetic tabular extract -> OMOP tables of contract/data_contract.md (version 2026-09-17).
+# Input is the per-centre output of prepare.py, not the raw UKB TSVs.
+source: ukb-synthetic-tabular
+
+files:
+  participants: participants.csv
+  measurements: measurements.csv
+  diagnoses: diagnoses.csv
+
+concept_maps:
+  gender:
+    "0": 8532  # UKB field 31: female
+    "1": 8507  # UKB field 31: male
+  measurement:
+    "21001": 3038553  # Body mass index
+    "4080": 3004249   # Systolic blood pressure, automated reading
+  unit:
+    "21001": 9531  # kg/m2
+    "4080": 8876   # mmHg
+  condition:
+    "E110": 201826
+    "E111": 201826
+    "E112": 201826
+    "E113": 201826
+    "E114": 201826
+    "E115": 201826
+    "E116": 201826
+    "E117": 201826
+    "E118": 201826
+    "E119": 201826
+
+tables:
+  person:
+    from: participants
+    columns:
+      person_id: row_number() OVER (ORDER BY src_row)
+      gender_concept_id: coalesce(omop_concept('gender', sex), 0)
+      year_of_birth: CAST(year_of_birth AS INTEGER)
+      race_concept_id: 0
+      ethnicity_concept_id: 0
+      person_source_value: eid
+
+  observation_period:
+    from: |
+      (SELECT eid, visit_date AS event_date FROM participants
+       UNION ALL SELECT eid, measured_on FROM measurements
+       UNION ALL SELECT eid, diagnosed_on FROM diagnoses) e
+    join: JOIN omop_person p ON p.person_source_value = e.eid
+    group_by: p.person_id
+    columns:
+      observation_period_id: row_number() OVER (ORDER BY p.person_id)
+      person_id: p.person_id
+      observation_period_start_date: omop_date(min(e.event_date))
+      observation_period_end_date: omop_date(max(e.event_date))
+      period_type_concept_id: 32817
+
+  measurement:
+    from: measurements m
+    join: JOIN omop_person p ON p.person_source_value = m.eid
+    where: m.field IN (SELECT * FROM omop_codes('measurement'))
+    columns:
+      measurement_id: row_number() OVER (ORDER BY m.src_row)
+      person_id: p.person_id
+      measurement_concept_id: omop_concept('measurement', m.field)
+      measurement_date: omop_date(m.measured_on)
+      measurement_type_concept_id: 32817
+      value_as_number: TRY_CAST(m.value AS DOUBLE)
+      unit_concept_id: coalesce(omop_concept('unit', m.field), 0)
+      measurement_source_value: m.field
+
+  condition_occurrence:
+    from: diagnoses d
+    join: JOIN omop_person p ON p.person_source_value = d.eid
+    where: d.icd10 IN (SELECT * FROM omop_codes('condition'))
+    columns:
+      condition_occurrence_id: row_number() OVER (ORDER BY d.src_row)
+      person_id: p.person_id
+      condition_concept_id: omop_concept('condition', d.icd10)
+      condition_start_date: omop_date(d.diagnosed_on)
+      condition_type_concept_id: 32817
+      condition_source_value: d.icd10
