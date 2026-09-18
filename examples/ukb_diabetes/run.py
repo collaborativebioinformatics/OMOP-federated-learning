@@ -1,4 +1,4 @@
-"""Federated incident-diabetes risk across OMOP sites, against a local-only and a pooled reference."""
+"""Federated incident-diabetes risk, against a local-only and a pooled reference."""
 
 from __future__ import annotations
 

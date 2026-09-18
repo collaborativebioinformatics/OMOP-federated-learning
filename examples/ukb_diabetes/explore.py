@@ -26,7 +26,7 @@ SBP_RANGE = next(feature.plausible_range for feature in CANDIDATES if feature.na
 
 
 def person_table(raw: Path) -> duckdb.DuckDBPyConnection:
-    """Open a connection with one row per participant, across every centre.
+    """Read one row per participant across every centre.
 
     Args:
         raw: Directory holding one folder per centre.
@@ -116,7 +116,7 @@ def profiles(raw: Path, eids: np.ndarray) -> np.ndarray:
 
 
 def embedding(shares: np.ndarray, keep: np.ndarray) -> np.ndarray:
-    """Embed the chapter profiles of the people with enough diagnoses to have one.
+    """Embed the chapter profiles of the people with enough diagnoses.
 
     Args:
         shares: Person by chapter shares.
@@ -136,7 +136,7 @@ def embedding(shares: np.ndarray, keep: np.ndarray) -> np.ndarray:
 
 
 def quality(people: pd.DataFrame) -> pd.DataFrame:
-    """Summarise the participant table with ehrapy's quality metrics.
+    """Summarise the participants with ehrapy's quality metrics.
 
     Args:
         people: One row per participant.
@@ -245,7 +245,7 @@ def load(axis: plt.Axes, counts: np.ndarray, metrics: pd.DataFrame) -> None:
 
 
 def separation(axis: plt.Axes, bmi: np.ndarray, case: np.ndarray) -> None:
-    """Overlay the BMI distribution of the diabetic group and the rest.
+    """Overlay the BMI distributions of the diabetic group and the rest.
 
     Args:
         axis: Axes to draw on.
@@ -270,7 +270,7 @@ def separation(axis: plt.Axes, bmi: np.ndarray, case: np.ndarray) -> None:
     axis.set_ylabel("density", fontsize=9)
     axis.legend(fontsize=7, frameon=False)
     difference = float(np.nanmean(bmi[case]) - np.nanmean(bmi[~case]))
-    axis.set_title(f"The groups differ by {difference:+.2f} kg/m², which is nothing", fontsize=10)
+    axis.set_title(f"BMI differs by {difference:+.2f} kg/m² between the groups", fontsize=10)
 
 
 def map_panel(axis: plt.Axes, coordinates: np.ndarray, values: np.ndarray, title: str, label: str) -> None:
@@ -324,7 +324,7 @@ def main() -> None:
     implausible(axes[0, 1], sbp, metrics)
     load(axes[0, 2], counts, metrics)
     separation(axes[1, 0], bmi, case)
-    map_panel(axes[1, 1], coordinates, counts[keep], "Chapter profile, by how much history", "diagnoses")
+    map_panel(axes[1, 1], coordinates, counts[keep], "Chapter profile, by history length", "diagnoses")
     map_panel(
         axes[1, 2],
         coordinates,

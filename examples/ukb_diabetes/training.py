@@ -1,4 +1,4 @@
-"""Loading, training and scoring shared by the NVFlare client and the local and pooled baselines."""
+"""Loading, training and scoring shared by the client and the baselines."""
 
 from __future__ import annotations
 

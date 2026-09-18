@@ -1,4 +1,4 @@
-"""Map every prepared UKB site to OMOP with the omop-etl skill, then validate it against the contract."""
+"""Map every site to OMOP with the omop-etl skill, then validate it against the contract."""
 
 from __future__ import annotations
 

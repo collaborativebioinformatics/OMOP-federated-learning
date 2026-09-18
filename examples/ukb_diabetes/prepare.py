@@ -1,4 +1,4 @@
-"""Split the official UK Biobank synthetic tabular extract into one raw folder per assessment centre."""
+"""Split the UK Biobank synthetic extract into one raw folder per assessment centre."""
 
 from __future__ import annotations
 

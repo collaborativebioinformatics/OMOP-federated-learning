@@ -1,4 +1,4 @@
-"""The cohort, the landmark and the label shared by every site of the UKB pipeline."""
+"""The cohort, landmark and label shared by every site."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def index_table(source: of.OmopSource) -> pa.Table:
 
 
 def split(person_ids: np.ndarray, *, test_fraction: float = TEST_FRACTION) -> np.ndarray:
-    """Assign people to the training or the test half, the same way at every site and every run.
+    """Assign people to the training or the test half, the same way everywhere.
 
     Args:
         person_ids: The people to split.

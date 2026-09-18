@@ -1,10 +1,9 @@
 # Federated diabetes risk on Synthea, where there is signal
 
-UK Biobank's synthetic extract draws every field independently, so no model can beat chance on it.
-Synthea models disease progression, and `cohort_2` was built with per-site population parameters, so its five sites differ.
+UK Biobank's synthetic extract draws every field independently, so nothing beats chance on it.
+Synthea models disease progression, and `cohort_2` has per-site population parameters, so its five sites differ.
 
 `run.py` and `figures.py` live in [`../ukb_diabetes`](../ukb_diabetes) and take the sites as an argument.
-`explore.py` does not, because it reads UK Biobank's own raw layout.
 
 ```bash
 cd ../ukb_diabetes
@@ -25,8 +24,8 @@ python figures.py --results results_synthea.json --out ../synthea_diabetes/feder
 | federated | 0.582 | 0.499 to 0.675 |
 | pooled | 0.586 | 0.503 to 0.674 |
 
-FedAvg recovers the pooled model, 0.582 against 0.586, without any site sharing a row.
-The smallest site would have done worse than chance alone, and it is the one federation helps most.
+FedAvg recovers the pooled model without any site sharing a row.
+The smallest site would have done worse than chance alone.
 
-With 23 positives held out these intervals overlap heavily.
-They support the claim that federated matches pooled and beats the weakest site, not that any single pair differs significantly.
+With 23 positives held out the intervals overlap heavily.
+They support federated matching pooled and beating the weakest site, not a significant pairwise gap.
