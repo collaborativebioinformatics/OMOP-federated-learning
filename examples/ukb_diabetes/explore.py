@@ -18,6 +18,8 @@ from cohort import CANDIDATES, LOOKBACK_DAYS, VOCABULARY_VERSION, index_table, s
 
 import omopflare as of
 
+plt.rcParams.update({"xtick.labelsize": 11, "ytick.labelsize": 11})
+
 HERE = Path(__file__).parent
 SITE, ACCENT, CASE, MUTED = "#94a3b8", "#16a34a", "#b91c1c", "#64748b"
 DIVERGING = "RdBu_r"
@@ -124,15 +126,15 @@ def funnel(axis: plt.Axes, stages: dict[str, int]) -> None:
     names, values = list(stages), list(stages.values())
     axis.barh(range(len(names)), values, color=[SITE] * (len(names) - 1) + [CASE])
     axis.set_yticks(range(len(names)))
-    axis.set_yticklabels(names, fontsize=8)
+    axis.set_yticklabels(names, fontsize=11)
     axis.invert_yaxis()
-    axis.set_ylabel("cohort rule", fontsize=9)
+    axis.set_ylabel("cohort rule", fontsize=12)
     axis.set_xscale("log")
-    axis.set_xlabel("people (log scale)", fontsize=9)
+    axis.set_xlabel("people (log scale)", fontsize=12)
     for position, value in enumerate(values):
-        axis.text(value * 1.2, position, f"{value:,}", va="center", fontsize=7, color=MUTED)
+        axis.text(value * 1.2, position, f"{value:,}", va="center", fontsize=10, color=MUTED)
     axis.set_xlim(right=max(values) * 6)
-    axis.set_title("Who is left to train on", fontsize=10)
+    axis.set_title("Who is left to train on", fontsize=13)
 
 
 def case_rate(axis: plt.Axes, edata: EHRData) -> None:
@@ -149,14 +151,14 @@ def case_rate(axis: plt.Axes, edata: EHRData) -> None:
     axis.hlines(positions, pooled, rates, color=SITE, linewidth=1)
     axis.scatter(rates, positions, s=np.sqrt(sizes) * 2.5, color=CASE, zorder=3)
     axis.axvline(pooled, color=MUTED, linewidth=1)
-    axis.text(pooled, -0.75, f" pooled {pooled:.2f}%", fontsize=7, color=MUTED, va="bottom")
+    axis.text(pooled, -0.75, f" pooled {pooled:.2f}%", fontsize=10, color=MUTED, va="bottom")
     axis.set_yticks(positions)
-    axis.set_yticklabels([name.replace("centre_", "") for name in rates.index], fontsize=7)
+    axis.set_yticklabels([name.replace("centre_", "") for name in rates.index], fontsize=10)
     axis.set_ylim(len(rates) - 0.5, -1.0)
-    axis.set_ylabel("site", fontsize=9)
-    axis.set_xlabel("incident cases (%)", fontsize=9)
+    axis.set_ylabel("site", fontsize=12)
+    axis.set_xlabel("incident cases (%)", fontsize=12)
     axis.set_xlim(0, max(rates.max() * 1.25, pooled * 2))
-    axis.set_title("Case rate by site", fontsize=10)
+    axis.set_title("Case rate by site", fontsize=13)
 
 
 def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> None:
@@ -175,11 +177,11 @@ def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> Non
         axis.axvline(edge, color=ACCENT, linewidth=1)
     axis.set_xscale("log")
     axis.set_yscale("log")
-    axis.set_xlabel(f"{feature.name}, as recorded", fontsize=9)
-    axis.set_ylabel("readings (log scale)", fontsize=9)
+    axis.set_xlabel(f"{feature.name}, as recorded", fontsize=12)
+    axis.set_ylabel("readings (log scale)", fontsize=12)
     kept = float(((positive >= low) & (positive <= high)).mean())
-    axis.text(0.98, 0.92, f"the range keeps {kept:.0%}", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED)
-    axis.set_title(f"{feature.name} against the plausible range", fontsize=10)
+    axis.text(0.98, 0.92, f"the range keeps {kept:.0%}", transform=axis.transAxes, ha="right", fontsize=10, color=MUTED)
+    axis.set_title(f"{feature.name} against the plausible range", fontsize=13)
 
 
 def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
@@ -206,12 +208,12 @@ def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
         color=CASE,
         label=f"case ({(observed & case).sum():,})",
     )
-    axis.set_xlabel(feature, fontsize=9)
-    axis.set_ylabel("density", fontsize=9)
-    axis.legend(fontsize=7, frameon=False)
+    axis.set_xlabel(feature, fontsize=12)
+    axis.set_ylabel("density", fontsize=12)
+    axis.legend(fontsize=10, frameon=False)
     difference = float(np.nanmean(values[case]) - np.nanmean(values[~case])) / float(np.nanstd(values))
-    axis.text(0.98, 0.72, f"cases {difference:+.2f} SD", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED)
-    axis.set_title(f"{feature}, cases and controls", fontsize=10)
+    axis.text(0.98, 0.72, f"cases {difference:+.2f} SD", transform=axis.transAxes, ha="right", fontsize=10, color=MUTED)
+    axis.set_title(f"{feature}, cases and controls", fontsize=13)
 
 
 def main() -> None:
@@ -230,14 +232,14 @@ def main() -> None:
     print(differences.round(3).to_string())
 
     second = spec.features[1]
-    figure, axes = plt.subplots(2, 2, figsize=(11, 8.0))
+    figure, axes = plt.subplots(2, 2, figsize=(12, 9.0))
     funnel(axes[0, 0], stages)
     case_rate(axes[0, 1], edata)
     plausibility(axes[1, 0], raw_values(paths, second), second)
     separation(axes[1, 1], edata, second.name)
     for axis in axes.ravel():
         axis.spines[["top", "right"]].set_visible(False)
-    figure.suptitle(args.title, fontsize=12)
+    figure.suptitle(args.title, fontsize=16)
     figure.tight_layout()
     figure.savefig(args.out, dpi=300)
     print(f"wrote {args.out}")
