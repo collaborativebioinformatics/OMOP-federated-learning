@@ -68,7 +68,7 @@ spec = of.FeatureSpec(
 )
 site = of.OmopSource("/data/omop/site_a")
 of.validate(site, spec, strict=True)
-person_ids, X = of.design_matrix(site, spec, "select person_id, current_date as index_date from person")
+person_ids, X = of.feature_matrix(site, spec, "select person_id, current_date as index_date from person")
 ```
 
 A full NVFlare job is in [src/omopflare/README.md](src/omopflare/README.md).

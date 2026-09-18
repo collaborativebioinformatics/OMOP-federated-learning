@@ -11,7 +11,7 @@ OUT = HERE / "scale_benchmark.png"
 
 INK, MUTED, GRID, SURFACE = "#1a1a19", "#5c5c58", "#e4e4e0", "#fcfcfb"
 STAGES = {
-    "build_seconds": ("build design matrix", "#2a78d6"),
+    "build_seconds": ("build feature matrix", "#2a78d6"),
     "scan_seconds": ("duckdb scan", "#eb6834"),
     "epoch_seconds": ("training epoch", "#1baf7a"),
 }

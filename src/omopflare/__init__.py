@@ -1,4 +1,4 @@
-from .features import design_matrix, extract, to_matrix
+from .features import extract, feature_matrix, to_matrix
 from .leakage import FeatureLeak, leakage_report
 from .loader import CohortDataset, StreamingCohort, dataloader, site_statistics
 from .propose import concept_counts, propose_spec
@@ -21,10 +21,10 @@ __all__ = [
     "combine",
     "concept_counts",
     "dataloader",
-    "design_matrix",
     "errors",
     "extract",
     "extract_sequence",
+    "feature_matrix",
     "leakage_report",
     "prevalence",
     "propose_spec",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from .features import harmonised_value
 from .source import OmopSource
 from .spec import CONCEPT_COLUMN, VALUE_COLUMN, Feature, FeatureSpec
 from .stats import MIN_CELL_COUNT
@@ -33,11 +34,12 @@ def concept_counts(
         if value:
             guards.append(f"{value} is not null")
             if feature.unit_concept_id is not None:
-                guards.append(f"unit_concept_id = {feature.unit_concept_id}")
+                units = [feature.unit_concept_id, *(unit for unit, _, _ in feature.conversions)]
+                guards.append(f"unit_concept_id in ({', '.join(map(str, units))})")
             if feature.plausible_range is not None:
                 low, high = feature.plausible_range
-                guards.append(f"{value} between {low} and {high}")
-        query = f"select count(distinct person_id) from {feature.domain} where {' and '.join(guards)}"
+                guards.append(f"{harmonised_value(feature, 'e')} between {low} and {high}")
+        query = f"select count(distinct person_id) from {feature.domain} e where {' and '.join(guards)}"
         found = int(source.connection.execute(query).fetchone()[0])
         counts[feature.name] = found if found >= min_cell_count else 0
     return counts
