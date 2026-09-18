@@ -44,12 +44,21 @@ def _auroc(labels: np.ndarray, scores: np.ndarray) -> float:
     return float(above / (positive.size * negative.size))
 
 
+def _single_class_probability(group: np.ndarray, rate: float) -> float:
+    """Probability that a group this size is single-class by chance under the pooled outcome rate."""
+    if group.size == 0:
+        return 1.0
+    share = rate if group[0] == 0 else 1.0 - rate
+    return float((1.0 - share) ** group.size) if 0.0 < share < 1.0 else 1.0
+
+
 def leakage_report(
     source: OmopSource,
     spec: FeatureSpec,
     index: Index,
     *,
     max_missingness_auroc: float = 0.65,
+    alpha: float = 1e-3,
 ) -> tuple[list[FeatureLeak], list[Finding]]:
     """Check whether being measured, rather than what was measured, predicts the outcome.
 
@@ -61,6 +70,7 @@ def leakage_report(
         spec: The frozen feature schema.
         index: SQL, a duckdb relation or an Arrow table with ``person_id``, ``index_date`` and ``label``.
         max_missingness_auroc: Largest tolerated AUROC for a presence indicator on its own, in either direction.
+        alpha: Significance needed before calling a single-class group separation rather than a small sample.
 
     Returns:
         One :class:`FeatureLeak` per feature, and findings for the features that cross the threshold.
@@ -91,12 +101,16 @@ def leakage_report(
         )
         leaks.append(leak)
 
-        if seen.size and unseen.size and (len(np.unique(seen)) == 1 or len(np.unique(unseen)) == 1):
+        rate = float(y.mean())
+        separated = [g for g in (seen, unseen) if g.size and len(np.unique(g)) == 1]
+        unlikely = [g for g in separated if _single_class_probability(g, rate) < alpha]
+        if seen.size and unseen.size and unlikely:
             findings.append(
                 Finding(
                     "error",
                     "missingness_separates",
-                    f"{feature.name}: every measured patient has the same outcome, so presence decides the label",
+                    f"{feature.name}: {unlikely[0].size} patients on one side of the presence split share an outcome, "
+                    f"which chance does not explain, so presence decides the label",
                 )
             )
         elif not np.isnan(leak.auroc) and abs(leak.auroc - 0.5) > max_missingness_auroc - 0.5:
