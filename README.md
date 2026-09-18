@@ -2,37 +2,43 @@
 
 ```mermaid
 flowchart TB
-    subgraph SP1["Subproject 1: Any biobank to OMOP"]
-        A["Agree on minimal required <br/> tables and fields common to biobanks"]
-        B["Collect ~2 datasets with existing <br/> OMOP conversions, e.g. UK Biobank"]
-        C["Skill / framework POC <br/> biobank schema to OMOP CDM"]
-        D{"Reproduces the published<br/>conversion?"}
-        E["Convert ~3 datasets<br/>not yet in OMOP"]
-        A --> B --> C --> D
-        D -->|no| C
-        D -->|yes, primary eval passed| E
-    end
 
-    subgraph SP2["Subproject 2: Federated learning on OMOP"]
-        F["Learn NVFlare"]
-        G["Visualize and explore<br/>existing OMOP datasets"]
-        H["Define site split and<br/>FedAvg baseline strategy"]
-        I["Custom OMOP dataloader<br/>for NVFlare"]
-        K["Simple linear model trained<br/>across simulated sites"]
-        F --> G --> H --> I --> K
-    end
+subgraph SP1["Subproject 1: Any biobank to OMOP"]
+    direction LR
+    A["Define minimal common tables and fields"]
+    B["Collect ~2 datasets with existing OMOP conversions"]
+    C["Build biobank schema to OMOP CDM POC"]
+    D{"Reproduces published conversion?"}
+    E["Convert ~3 datasets not yet in OMOP"]
 
-    E -->|OMOP datasets| J["Joint pipeline:<br/>raw biobank to OMOP to federated training"]
-    K -->|dataloader and model| J
+    A --> B --> C --> D
+    D -->|No: iterate| C
+    D -->|Yes: primary eval passed| E
+end
 
-    classDef sp1 fill:#dbeafe,stroke:#1e40af,color:#111827
-    classDef sp2 fill:#dcfce7,stroke:#166534,color:#111827
-    classDef gate fill:#fef3c7,stroke:#92400e,color:#111827
-    classDef out fill:#ede9fe,stroke:#5b21b6,color:#111827
-    class A,B,C,E sp1
-    class F,G,H,I,K sp2
-    class D gate
-    class J out
+subgraph SP2["Subproject 2: Federated learning on OMOP"]
+    direction LR
+    F["Learn NVFlare"]
+    G["Explore existing OMOP datasets"]
+    H["Define site split and FedAvg baseline"]
+    I["Build custom OMOP dataloader for NVFlare"]
+    K["Train simple linear model across simulated sites"]
+
+    F --> G --> H --> I --> K
+end
+
+E -->|OMOP datasets| J["Joint pipeline: Raw biobank → OMOP → Federated training"]
+K -->|Dataloader and model| J
+
+classDef blue fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+classDef green fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+classDef yellow fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+classDef purple fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#111827
+
+class A,B,C,E blue
+class F,G,H,I,K green
+class D yellow
+class J purple
 ```
 
 **Subproject 1** gets any biobank dataset into OMOP.
