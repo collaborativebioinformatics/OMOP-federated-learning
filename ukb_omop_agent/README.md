@@ -99,6 +99,8 @@ The UKB specification declares sex, birth year, BMI, systolic blood pressure, IC
 
 Add `--diagnosis-code E110` for one exact ICD10 code (equivalent to `E11.0`), or `--diagnosis-prefix E11` for the E11 family. `--diagnosis-code E11` would match only a literal `E11` source code, not `E110` through `E119`. Repeat either flag to select more codes or families; selections are combined. Use **the same flags** on `inspect`, `apply`, and `qc`. The preflight records the selection and rejects a later apply/QC run with different flags. This diagnosis-event filter is separate from `make_ukb_subset.py --all-e11`, which selects participants. People and non-diagnosis measurements remain in the OMOP output. Without either diagnosis flag, every ICD10 diagnosis in the input is considered.
 
+When an LLM helps run the workflow from a disease name, it must first show the proposed UKB ICD-10 code selection and ask the user to validate it. The prompt should distinguish an exact code from a family prefix and state important exclusions. This validates which source records will be selected; approving the later OMOP target concepts is a separate decision. The LLM may reuse an exact selection that the user already validated in the current conversation.
+
 The output is a **pilot subset** of OMOP 5.4 tables: person, observation_period, condition_occurrence, measurement, observation, and procedure_occurrence. Unapproved source events remain with concept ID 0 in the configured fallback domain. The QC checks exact replay, unique row IDs, and person foreign keys. It also reports input events, mapped events by field, exclusions, and unknown units. Coverage and replay QC do not establish clinical correctness.
 
 ## AD, PD, T2D, and blood assays
