@@ -31,7 +31,9 @@ When `contract.yaml` doesn't answer a mapping question, look up the table and fi
    Read the report: tables, columns, empty values, the most frequent codes with their descriptions.
 
 2. **Pick or write the mapping.**
-   - Synthea 3.3.0: use `omop_skill/mappings/synthea_3.3.0.yaml` as is.
+   - Synthea 3.3.0 under the current contract: use `omop_skill/mappings/synthea_3.3.0_contract_rev3.yaml` as is.
+   - Revision 1 data such as `cohort_2`: `omop_skill/mappings/synthea_3.3.0.yaml`.
+   - UK Biobank wide extract: `omop_skill/mappings/ukb_pilot.yaml`.
    - Any other source: copy it to `omop_skill/mappings/<source>.yaml`, then rewrite `files`, `concept_maps`, and every table from the profile.
 
    Rules for a mapping:
@@ -47,7 +49,9 @@ When `contract.yaml` doesn't answer a mapping question, look up the table and fi
 
 4. **Validate.**
    `python omop_skill/scripts/validate_contract.py <output_dir>/<site>`
-   `contract.yaml` is the current contract (revision 2). For revision 1 data such as `cohort_2`, add `--contract omop_skill/contract_rev1.yaml`.
+   `contract.yaml` is the current contract (2026-09-18). For revision 1 data such as `cohort_2`, add `--contract omop_skill/contract_rev1.yaml`.
+   Then run the quality report for completeness, date logic and mapping rate:
+   `python omop_skill/scripts/qc_report.py --output <output_dir>/<site> --out <output_dir>/<site>/qc_report.md --json <output_dir>/<site>/qc.json`
    If a trusted output with the same IDs exists, for example `synthea_cohorts/cohort_2/data/omop/<site>`, add `--reference <that_dir>`.
 
 5. **Split and compare, when the contract asks for it.**

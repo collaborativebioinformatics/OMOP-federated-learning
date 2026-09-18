@@ -1,6 +1,7 @@
-# Machine-readable version of contract/data_contract.md, revision 2 (2026-09-17), sections 5, 6 and 8.
-# Change both files together. Revision 1 lives in contract_rev1.yaml.
-version: "2026-09-17 revision 2"
+# Machine-readable version of contract/data_contract.md, current revision (2026-09-18, 22 concept IDs).
+# Change both files together. Revision 1 lives in contract_rev1.yaml for cohort_2.
+# The 2026-09-18 revision drops the plausibility ranges of revision 2, so none are checked here.
+version: "2026-09-18"
 tables:
   person:
     columns:
@@ -21,27 +22,22 @@ tables:
     columns:
       measurement_id: {type: integer}
       person_id: {type: integer}
-      measurement_concept_id: {type: integer, allowed: [3004410, 3038553, 3004249]}
+      measurement_concept_id:
+        type: integer
+        allowed: [3004410, 3038553, 3004249, 3000483, 3004501, 3027114, 3007070, 3009966, 3022192]
       measurement_date: {type: date}
       measurement_type_concept_id: {type: integer, allowed: [32817]}
       value_as_number: {type: decimal, required: false}
-      unit_concept_id: {type: integer, allowed: [8554, 9531, 8876]}
+      unit_concept_id: {type: integer, allowed: [8554, 9531, 8876, 8840]}
       measurement_source_value: {type: text}
   condition_occurrence:
     columns:
       condition_occurrence_id: {type: integer}
       person_id: {type: integer}
-      condition_concept_id: {type: integer, allowed: [201826]}
+      condition_concept_id: {type: integer, allowed: [201826, 378419, 381270]}
       condition_start_date: {type: date}
       condition_type_concept_id: {type: integer, allowed: [32817]}
       condition_source_value: {type: text}
 
-# Section 8, check 4.
-plausible_ranges:
-  - {table: measurement, concept_id: 3004410, min: 3, max: 20}    # HbA1c, %
-  - {table: measurement, concept_id: 3038553, min: 10, max: 80}   # Body mass index
-  - {table: measurement, concept_id: 3004249, min: 60, max: 250}  # Systolic blood pressure
-
-# Section 8, comparison with the reference.
 comparison:
   measurement_value_tolerance: 0.01

@@ -1,5 +1,7 @@
-# Synthea 3.3.0 CSV export -> OMOP tables of contract/data_contract.md, revision 2 (2026-09-17).
+# Synthea 3.3.0 CSV export -> OMOP tables of contract/data_contract.md, current revision (2026-09-18):
+# 3 condition codes, 9 measurement codes, race and ethnicity concepts.
 # Written from the contract text and the source profile only, without looking at any existing OMOP output.
+# Every concept ID below was checked against Athena v5.0 29-AUG-26: valid, standard, and the "Maps to" target of its code.
 source: synthea-3.3.0
 contract: contract.yaml
 
@@ -24,12 +26,21 @@ concept_maps:
     "4548-4": 3004410   # Hemoglobin A1c
     "39156-5": 3038553  # Body mass index
     "8480-6": 3004249   # Systolic blood pressure
+    "2339-0": 3000483   # Glucose in blood
+    "2345-7": 3004501   # Glucose in serum or plasma, kept separate from 2339-0 as the contract requires
+    "2093-3": 3027114   # Total cholesterol
+    "2085-9": 3007070   # HDL cholesterol
+    "18262-6": 3009966  # LDL cholesterol
+    "2571-8": 3022192   # Triglycerides
   unit:
     "%": 8554
     "kg/m2": 9531
     "mm[Hg]": 8876
+    "mg/dL": 8840
   condition:
     "44054006": 201826  # Type 2 diabetes mellitus
+    "26929004": 378419  # Alzheimer disease
+    "49049000": 381270  # Parkinson disease
 
 tables:
   # One row for every row in patients.csv, numbered in file order.
@@ -60,7 +71,7 @@ tables:
       observation_period_end_date: strftime(max(events.event_date), '%Y-%m-%d')
       period_type_concept_id: 32817
 
-  # One row for every observation whose CODE is 4548-4, 39156-5 or 8480-6.
+  # One row for every observation whose CODE is in the measurement map.
   measurement:
     from: observations o
     join: JOIN omop_person p ON p.person_source_value = o.PATIENT
@@ -75,7 +86,7 @@ tables:
       unit_concept_id: omop_concept('unit', o.UNITS)
       measurement_source_value: o.CODE
 
-  # One row for every condition whose CODE is 44054006.
+  # One row for every condition whose CODE is in the condition map.
   condition_occurrence:
     from: conditions c
     join: JOIN omop_person p ON p.person_source_value = c.PATIENT

@@ -83,6 +83,25 @@ Athena release `v5.0 29-AUG-26`, the date section 2 of the contract asks for.
 
 Rebuilding the reference: [reference/README.md](reference/README.md).
 
+### Current contract (2026-09-18): 12 source codes
+
+The contract grew to 3 condition codes and 9 measurement codes.
+Same raw run, same ETL-Synthea database, reference re-exported for the 12 codes, mapping `mappings/synthea_3.3.0_contract_rev3.yaml`.
+All 22 concept IDs of the contract checked against Athena v5.0 29-AUG-26: valid, standard, and the `Maps to` target of their source code.
+The Synthea units match the units the contract lists.
+
+| Table | Skill | ETL-Synthea | Result |
+|---|---|---|---|
+| person | 1,162 | 1,162 | Identical except race for the 11 `hawaiian` patients, as before |
+| measurement | 254,891 | 254,891 | Same rows on every date, 9 values differ |
+| condition_occurrence | 120 rows, 113 persons | 113 persons | Identical, every start date |
+
+Contract check: OK. Conversion: 8 s.
+
+The 9 value differences are LDL cholesterol (LOINC 18262-6) below zero, as low as -28.1 mg/dL.
+Synthea writes these values. The skill copies them as the contract says, ETL-Synthea leaves `value_as_number` empty.
+A negative LDL is impossible, so the fix belongs in QC: a plausibility check on lab values catches it.
+
 ## How it differs from the hand-written ETL
 
 | | Hand-written ETL (`build_datasets.py`) | omop_skill |

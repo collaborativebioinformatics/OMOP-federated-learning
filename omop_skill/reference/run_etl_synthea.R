@@ -63,8 +63,8 @@ if (phase == "transform") {
   }
   # The tables and concepts section 8 of the data contract compares.
   export("person", "SELECT person_id, gender_concept_id, year_of_birth, race_concept_id, ethnicity_concept_id, person_source_value FROM cdm.person ORDER BY person_id")
-  export("measurement", "SELECT person_id, measurement_concept_id, measurement_date, value_as_number, unit_concept_id FROM cdm.measurement WHERE measurement_concept_id IN (3004410, 3038553, 3004249) ORDER BY person_id, measurement_date")
-  export("condition_occurrence", "SELECT person_id, condition_concept_id, condition_start_date FROM cdm.condition_occurrence WHERE condition_concept_id = 201826 ORDER BY person_id")
+  export("measurement", "SELECT person_id, measurement_concept_id, measurement_date, value_as_number, unit_concept_id FROM cdm.measurement WHERE measurement_concept_id IN (3004410, 3038553, 3004249, 3000483, 3004501, 3027114, 3007070, 3009966, 3022192) ORDER BY person_id, measurement_date")
+  export("condition_occurrence", "SELECT person_id, condition_concept_id, condition_start_date FROM cdm.condition_occurrence WHERE condition_concept_id IN (201826, 378419, 381270) ORDER BY person_id")
   print(querySql(conn, paste(
     "SELECT 'person' AS cdm_table, COUNT(*) AS n FROM cdm.person",
     "UNION ALL SELECT 'observation_period', COUNT(*) FROM cdm.observation_period",
