@@ -6,8 +6,7 @@
 
 **ETL pipeline and federated learning framework for OMOP Common Data Model data.**
 
-Convert a biobank dataset to OMOP, validate it, and run federated learning across sites — 
-all in one reproducible pipeline.
+Outcome slides: https://docs.google.com/presentation/d/1I1nlIlsc0asSbRA2BaA1wkYWe8p0m3jS/edit?usp=sharing&ouid=114199228492846411451&rtpof=true&sd=true
 
 Difficult terms are explained under [Terms](#terms).
 
