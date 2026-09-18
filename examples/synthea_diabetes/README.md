@@ -3,14 +3,22 @@
 UK Biobank's synthetic extract draws every field independently, so nothing beats chance on it.
 Synthea models disease progression, and `cohort_2` has per-site population parameters, so its five sites differ.
 
-`run.py` and `figures.py` live in [`../ukb_diabetes`](../ukb_diabetes) and take the sites as an argument.
+`explore.py`, `run.py` and `figures.py` live in [`../ukb_diabetes`](../ukb_diabetes) and take the sites as an argument.
 
 ```bash
 cd ../ukb_diabetes
+python explore.py --sites ../../synthea_cohorts/cohort_2/data/omop \
+  --out ../synthea_diabetes/cohort_overview.png --title "Synthea cohort_2, before any modelling"
 python run.py --sites ../../synthea_cohorts/cohort_2/data/omop --job synthea_fedavg --tag synthea
-python figures.py --results results_synthea.json --out ../synthea_diabetes/federated_vs_local.png \
+python figures.py --results ../synthea_diabetes/results.json --out ../synthea_diabetes/federated_vs_local.png \
   --title "Incident type 2 diabetes across Synthea sites"
 ```
+
+![cohort overview](cohort_overview.png)
+
+The five sites differ, which is the point.
+The case rate varies 7-fold, site_a sits 0.79 pooled standard deviations below the mean BMI, and the site medians span 4.9 kg/m².
+The same figure on UK Biobank puts every centre within 0.03 SD.
 
 ![federated against local](federated_vs_local.png)
 

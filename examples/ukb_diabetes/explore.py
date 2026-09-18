@@ -1,11 +1,10 @@
-"""Look at the UK Biobank extract before anything is trained on it."""
+"""Compare the cohorts the sites bring to the federation, before anything is trained."""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-import duckdb
 import ehrapy as ep
 import ehrdata
 import matplotlib
@@ -19,168 +18,102 @@ from cohort import CANDIDATES, LOOKBACK_DAYS, VOCABULARY_VERSION, index_table, s
 
 import omopflare as of
 
+plt.rcParams.update({"xtick.labelsize": 11, "ytick.labelsize": 11})
+
 HERE = Path(__file__).parent
-SAMPLED = 100_000
-LOCAL, ACCENT, CASE, MUTED = "#94a3b8", "#16a34a", "#b91c1c", "#64748b"
-SBP_RANGE = next(feature.plausible_range for feature in CANDIDATES if feature.name == "sbp")
+SITE, ACCENT, CASE, MUTED = "#94a3b8", "#16a34a", "#b91c1c", "#64748b"
+DIVERGING = "RdBu_r"
 
 
-def person_table(raw: Path) -> duckdb.DuckDBPyConnection:
-    """Read one row per participant across every centre.
-
-    Args:
-        raw: Directory holding one folder per centre.
-
-    Returns:
-        A connection holding a ``people`` table of ``eid``, ``bmi``, ``sbp``, ``diagnoses`` and ``case``.
-    """
-    con = duckdb.connect()
-    for alias, filename in (
-        ("d", "string_fields2.csv"),
-        ("m", "real_fields1.csv"),
-        ("b", "integer_arrays_part1.csv"),
-    ):
-        con.execute(
-            f"create view {alias} as select * from read_csv('{raw}/*/{filename}', "
-            "header=true, all_varchar=true, sample_size=-1)"
-        )
-    codes = [name for name in con.execute("select * from d limit 0").df().columns if name.startswith("41270-")]
-    stacked = ", ".join(f'"{name}"' for name in codes)
-    con.execute(f"""
-        create table people as
-        select m.eid,
-               try_cast(m."21001-0.0" as double) as bmi,
-               try_cast(b."4080-0.0" as double) as sbp,
-               coalesce(u.diagnoses, 0) as diagnoses,
-               coalesce(u.is_case, false) as is_case
-        from m
-        join b using (eid)
-        left join (
-            select eid,
-                   count(code) filter (where code <> '') as diagnoses,
-                   max(code like 'E11%') as is_case
-            from (select eid, unnest([{stacked}]) as code from d)
-            group by eid
-        ) u using (eid)
-    """)
-    return con
-
-
-CHAPTERS = ("A-B", "C-D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S-T", "V-Y", "Z")
-MIN_DIAGNOSES = 5
-
-
-def chapter_of(code: str) -> str:
-    """Name the ICD-10 chapter a code belongs to.
+def build(paths: tuple[Path, ...], spec: of.FeatureSpec) -> tuple[EHRData, dict[str, int]]:
+    """Read every site into one cohort and count who each rule removes.
 
     Args:
-        code: An ICD-10 code such as ``E119``.
+        paths: One directory per site.
+        spec: The agreed feature schema.
 
     Returns:
-        The chapter label, or ``other`` if the first letter is unknown.
+        People by feature with the site and the label in ``obs``, and the funnel counts.
     """
-    letter = code[:1].upper()
-    for chapter in CHAPTERS:
-        if letter in chapter.split("-") or (len(chapter) == 3 and chapter[0] <= letter <= chapter[2]):
-            return chapter
-    return "other"
-
-
-def profiles(raw: Path, eids: np.ndarray) -> np.ndarray:
-    """Build each person's share of diagnoses per ICD-10 chapter.
-
-    Args:
-        raw: Directory holding one folder per centre.
-        eids: Participants, in the order the rows should come out.
-
-    Returns:
-        A person by chapter matrix of shares, rows summing to one where anything was recorded.
-    """
-    con = duckdb.connect()
-    con.execute(
-        f"create view d as select * from read_csv('{raw}/*/string_fields2.csv', "
-        "header=true, all_varchar=true, sample_size=-1)"
-    )
-    codes = [name for name in con.execute("select * from d limit 0").df().columns if name.startswith("41270-")]
-    stacked = ", ".join(f'"{name}"' for name in codes)
-    pairs = con.execute(f"select eid, code from (select eid, unnest([{stacked}]) as code from d) where code <> ''").df()
-    position = {name: index for index, name in enumerate(CHAPTERS)}
-    row_of = {eid: index for index, eid in enumerate(eids)}
-    counts = np.zeros((len(eids), len(CHAPTERS)))
-    for eid, code in zip(pairs["eid"].to_numpy(), pairs["code"].to_numpy(), strict=True):
-        chapter = chapter_of(code)
-        if chapter in position and eid in row_of:
-            counts[row_of[eid], position[chapter]] += 1
-    totals = counts.sum(axis=1, keepdims=True)
-    return np.divide(counts, totals, out=np.zeros_like(counts), where=totals > 0)
-
-
-def embedding(shares: np.ndarray, keep: np.ndarray) -> np.ndarray:
-    """Embed the chapter profiles of the people with enough diagnoses.
-
-    Args:
-        shares: Person by chapter shares.
-        keep: Which people to embed.
-
-    Returns:
-        Two-dimensional coordinates for the kept people.
-    """
-    edata = EHRData(shares[keep].astype(np.float64))
-    edata.var_names = list(CHAPTERS)
-    ehrdata.infer_feature_types(edata, output=None)
-    ep.pp.scale_norm(edata)
-    ep.pp.pca(edata, n_comps=10)
-    ep.pp.neighbors(edata, n_neighbors=30)
-    ep.tl.umap(edata)
-    return edata.obsm["X_umap"]
-
-
-def quality(people: pd.DataFrame) -> pd.DataFrame:
-    """Summarise the participants with ehrapy's quality metrics.
-
-    Args:
-        people: One row per participant.
-
-    Returns:
-        One row per variable, as :func:`ehrapy.preprocessing.qc_metrics` returns it.
-    """
-    columns = ["bmi", "sbp", "diagnoses"]
-    edata = EHRData(people[columns].to_numpy(dtype=np.float64))
-    edata.var_names = columns
-    edata.obs["is_case"] = pd.Categorical(np.where(people["is_case"].to_numpy(), "E11", "no E11"))
-    ehrdata.infer_feature_types(edata, output=None)
-    return ep.pp.qc_metrics(edata)[1]
-
-
-def cohort_funnel(sites: Path) -> dict[str, int]:
-    """Count how many people survive each cohort rule.
-
-    Args:
-        sites: Directory of mapped OMOP sites.
-
-    Returns:
-        One count per stage, in order.
-    """
-    spec = of.FeatureSpec(CANDIDATES, VOCABULARY_VERSION, LOOKBACK_DAYS, missing_indicators=True)
-    people = eligible = followed = incident = 0
-    for path in site_paths(sites):
+    names = [feature.name for feature in spec.features]
+    blocks, frames = [], []
+    registered = eligible = 0
+    for path in paths:
         source = of.OmopSource(path)
-        people += source.connection.execute("select count(*) from person").fetchone()[0]
+        registered += source.connection.execute("select count(*) from person").fetchone()[0]
         index = index_table(source)
         eligible += index.num_rows
-        person_ids, _ = of.feature_matrix(source, spec, index)
-        followed += len(person_ids)
-        kept = {int(person) for person in person_ids}
-        labels = np.asarray(index.column("label"))
-        ids = np.asarray(index.column("person_id"))
-        incident += int(sum(label for person, label in zip(ids, labels, strict=True) if int(person) in kept))
-    return {
-        "sampled": SAMPLED,
-        "in these centres": people,
+        person_ids, features = of.feature_matrix(source, spec, index)
+        labels = dict(
+            zip(
+                np.asarray(index.column("person_id")).tolist(),
+                np.asarray(index.column("label")).tolist(),
+                strict=True,
+            )
+        )
+        blocks.append(features[:, : len(names)])
+        frames.append(
+            pd.DataFrame(
+                {"site": path.name, "label": [labels[int(person)] for person in person_ids]},
+                index=[f"{path.name}:{person}" for person in person_ids],
+            )
+        )
+    observations = pd.concat(frames)
+    edata = EHRData(np.vstack(blocks))
+    edata.var_names = names
+    edata.obs = observations
+    edata.obs["site"] = pd.Categorical(edata.obs["site"])
+    edata.obs["case"] = pd.Categorical(np.where(edata.obs["label"].to_numpy() > 0, "case", "control"))
+    ehrdata.infer_feature_types(edata, output=None)
+    funnel = {
+        "registered": registered,
         "no diabetes yet": eligible,
-        "followed past\nthe landmark": followed,
-        "incident cases": incident,
+        "followed past\nthe landmark": edata.n_obs,
+        "incident cases": int(edata.obs["label"].sum()),
     }
+    return edata, funnel
+
+
+def raw_values(paths: tuple[Path, ...], feature: of.Feature) -> np.ndarray:
+    """Read one concept's values before the plausible range is applied.
+
+    Args:
+        paths: One directory per site.
+        feature: The numeric feature to read.
+
+    Returns:
+        Every recorded value for that concept, across sites.
+    """
+    values = []
+    for path in paths:
+        values.append(
+            of.OmopSource(path)
+            .connection.execute(
+                "select try_cast(value_as_number as double) from measurement "
+                f"where measurement_concept_id = {feature.concept_id} and value_as_number is not null"
+            )
+            .df()
+            .iloc[:, 0]
+            .to_numpy()
+        )
+    return np.concatenate(values)
+
+
+def standardised_difference(edata: EHRData) -> pd.DataFrame:
+    """Measure how far each site's feature means sit from the pooled mean.
+
+    Args:
+        edata: The stacked cohort.
+
+    Returns:
+        Sites by features, in pooled standard deviations.
+    """
+    frame = pd.DataFrame(edata.X, columns=list(edata.var_names))
+    frame["site"] = edata.obs["site"].to_numpy()
+    pooled_mean = frame[list(edata.var_names)].mean()
+    pooled_std = frame[list(edata.var_names)].std().replace(0.0, np.nan)
+    by_site = frame.groupby("site", observed=True)[list(edata.var_names)].mean()
+    return (by_site - pooled_mean) / pooled_std
 
 
 def funnel(axis: plt.Axes, stages: dict[str, int]) -> None:
@@ -190,153 +123,126 @@ def funnel(axis: plt.Axes, stages: dict[str, int]) -> None:
         axis: Axes to draw on.
         stages: Counts per stage.
     """
-    names = list(stages)
-    values = [stages[name] for name in names]
-    axis.barh(range(len(names)), values, color=[LOCAL] * (len(names) - 1) + [CASE])
+    names, values = list(stages), list(stages.values())
+    axis.barh(range(len(names)), values, color=[SITE] * (len(names) - 1) + [CASE])
     axis.set_yticks(range(len(names)))
-    axis.set_yticklabels(names, fontsize=8)
+    axis.set_yticklabels(names, fontsize=11)
     axis.invert_yaxis()
+    axis.set_ylabel("cohort rule", fontsize=12)
     axis.set_xscale("log")
-    axis.set_xlabel("people (log scale)", fontsize=9)
+    axis.set_xlabel("people (log scale)", fontsize=12)
     for position, value in enumerate(values):
-        axis.text(value * 1.2, position, f"{value:,}", va="center", fontsize=7, color=MUTED)
+        axis.text(value * 1.2, position, f"{value:,}", va="center", fontsize=10, color=MUTED)
     axis.set_xlim(right=max(values) * 6)
-    axis.set_title("Who is left to train on", fontsize=10)
+    axis.set_title("Who is left to train on", fontsize=13)
 
 
-def implausible(axis: plt.Axes, sbp: np.ndarray, metrics: pd.DataFrame) -> None:
-    """Show systolic blood pressure against the range the spec accepts.
+def case_rate(axis: plt.Axes, edata: EHRData) -> None:
+    """Plot each site's case rate against the pooled rate.
 
     Args:
         axis: Axes to draw on.
-        sbp: Systolic readings.
-        metrics: The ehrapy quality table.
+        edata: The stacked cohort.
     """
-    low, high = SBP_RANGE
-    ceiling = metrics.loc["sbp", "max"]
-    values = sbp[~np.isnan(sbp) & (sbp > 0)]
-    axis.hist(values, bins=np.logspace(np.log10(values.min()), np.log10(values.max()), 60), color=LOCAL)
+    grouped = edata.obs.groupby("site", observed=True)["label"]
+    rates, sizes = grouped.mean() * 100, grouped.size()
+    pooled = float(edata.obs["label"].mean()) * 100
+    positions = np.arange(len(rates))
+    axis.hlines(positions, pooled, rates, color=SITE, linewidth=1)
+    axis.scatter(rates, positions, s=np.sqrt(sizes) * 2.5, color=CASE, zorder=3)
+    axis.axvline(pooled, color=MUTED, linewidth=1)
+    axis.text(pooled, -0.75, f" pooled {pooled:.2f}%", fontsize=10, color=MUTED, va="bottom")
+    axis.set_yticks(positions)
+    axis.set_yticklabels([name.replace("centre_", "") for name in rates.index], fontsize=10)
+    axis.set_ylim(len(rates) - 0.5, -1.0)
+    axis.set_ylabel("site", fontsize=12)
+    axis.set_xlabel("incident cases (%)", fontsize=12)
+    axis.set_xlim(0, max(rates.max() * 1.25, pooled * 2))
+    axis.set_title("Case rate by site", fontsize=13)
+
+
+def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> None:
+    """Show recorded values against the range the spec accepts.
+
+    Args:
+        axis: Axes to draw on.
+        values: Every recorded value for the concept.
+        feature: The feature, for its plausible range.
+    """
+    low, high = feature.plausible_range
+    positive = values[np.isfinite(values) & (values > 0)]
+    axis.hist(positive, bins=np.logspace(np.log10(positive.min()), np.log10(positive.max()), 60), color=SITE)
     axis.axvspan(low, high, color=ACCENT, alpha=0.15)
     for edge in (low, high):
         axis.axvline(edge, color=ACCENT, linewidth=1)
     axis.set_xscale("log")
     axis.set_yscale("log")
-    axis.set_xlabel("systolic blood pressure (mmHg)", fontsize=9)
-    axis.set_ylabel("readings (log scale)", fontsize=9)
-    kept = float(((values >= low) & (values <= high)).mean())
-    sentinel = int((values == ceiling).sum())
-    axis.set_title(f"{sentinel} readings sit at {ceiling:,.0f} mmHg; the range keeps {kept:.0%}", fontsize=10)
+    axis.set_xlabel(f"{feature.name}, as recorded", fontsize=12)
+    axis.set_ylabel("readings (log scale)", fontsize=12)
+    kept = float(((positive >= low) & (positive <= high)).mean())
+    axis.text(0.98, 0.92, f"the range keeps {kept:.0%}", transform=axis.transAxes, ha="right", fontsize=10, color=MUTED)
+    axis.set_title(f"{feature.name} against the plausible range", fontsize=13)
 
 
-def load(axis: plt.Axes, counts: np.ndarray, metrics: pd.DataFrame) -> None:
-    """Show how many diagnoses people carry.
-
-    Args:
-        axis: Axes to draw on.
-        counts: Dated diagnoses per person.
-        metrics: The ehrapy quality table.
-    """
-    axis.hist(counts, bins=np.arange(0, metrics.loc["diagnoses", "max"] + 5, 5), color=LOCAL)
-    axis.set_xlabel("diagnoses per person", fontsize=9)
-    axis.set_ylabel("people", fontsize=9)
-    none = float((counts == 0).mean())
-    recorded = np.median(counts[counts > 0])
-    axis.set_title(f"{none:.0%} have no hospital record, the rest a median of {recorded:.0f}", fontsize=10)
-
-
-def separation(axis: plt.Axes, bmi: np.ndarray, case: np.ndarray) -> None:
-    """Overlay the BMI distributions of the diabetic group and the rest.
+def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
+    """Overlay one feature for the cases and the controls.
 
     Args:
         axis: Axes to draw on.
-        bmi: Body mass index per person.
-        case: True where that person has an E11 code.
+        edata: The stacked cohort.
+        feature: Feature to compare.
     """
-    observed = ~np.isnan(bmi)
-    bins = np.linspace(np.nanmin(bmi), np.nanmax(bmi), 50)
+    values = edata[:, feature].X.ravel()
+    case = (edata.obs["case"] == "case").to_numpy()
+    observed = ~np.isnan(values)
+    bins = np.linspace(np.nanmin(values), np.nanmax(values), 30)
     axis.hist(
-        bmi[observed & ~case], bins=bins, density=True, color=LOCAL, label=f"no E11 ({(observed & ~case).sum():,})"
+        values[observed & ~case], bins=bins, density=True, color=SITE, label=f"control ({(observed & ~case).sum():,})"
     )
     axis.hist(
-        bmi[observed & case],
+        values[observed & case],
         bins=bins,
         density=True,
         histtype="step",
         linewidth=1.6,
         color=CASE,
-        label=f"E11 ({(observed & case).sum():,})",
+        label=f"case ({(observed & case).sum():,})",
     )
-    axis.set_xlabel("body mass index (kg/m²)", fontsize=9)
-    axis.set_ylabel("density", fontsize=9)
-    axis.legend(fontsize=7, frameon=False)
-    difference = float(np.nanmean(bmi[case]) - np.nanmean(bmi[~case]))
-    axis.set_title(f"BMI differs by {difference:+.2f} kg/m² between the groups", fontsize=10)
-
-
-def map_panel(axis: plt.Axes, coordinates: np.ndarray, values: np.ndarray, title: str, label: str) -> None:
-    """Draw the embedding coloured by one quantity.
-
-    Args:
-        axis: Axes to draw on.
-        coordinates: Two-dimensional coordinates.
-        values: One value per point.
-        title: Panel title.
-        label: Colour bar label.
-    """
-    order = np.random.default_rng(0).permutation(len(coordinates))
-    points = axis.scatter(
-        coordinates[order, 0], coordinates[order, 1], s=1.2, alpha=0.4, c=values[order], cmap="viridis"
-    )
-    bar = plt.colorbar(points, ax=axis, shrink=0.8)
-    bar.set_label(label, fontsize=8)
-    axis.set_xticks([])
-    axis.set_yticks([])
-    axis.set_xlabel("UMAP1", fontsize=8)
-    axis.set_ylabel("UMAP2", fontsize=8)
-    axis.set_title(title, fontsize=10)
+    axis.set_xlabel(feature, fontsize=12)
+    axis.set_ylabel("density", fontsize=12)
+    difference = float(np.nanmean(values[case]) - np.nanmean(values[~case])) / float(np.nanstd(values))
+    legend = axis.legend(fontsize=10, frameon=False, title=f"cases {difference:+.2f} SD")
+    legend.get_title().set_fontsize(10)
+    legend.get_title().set_color(MUTED)
+    axis.set_title(f"{feature}, cases and controls", fontsize=13)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--raw", type=Path, default=HERE / "data" / "raw")
     parser.add_argument("--sites", type=Path, default=HERE / "data" / "omop")
     parser.add_argument("--out", type=Path, default=HERE / "cohort_overview_ukb.png")
     parser.add_argument("--title", default="UK Biobank synthetic extract, before any modelling")
     args = parser.parse_args()
 
-    people = person_table(args.raw).execute("select * from people order by eid").df()
-    bmi = people["bmi"].to_numpy()
-    sbp = people["sbp"].to_numpy()
-    counts = people["diagnoses"].to_numpy()
-    case = people["is_case"].to_numpy().astype(bool)
-    metrics = quality(people)
-    print(metrics[["missing_values_pct", "median", "min", "max"]].round(2).to_string())
-    stages = cohort_funnel(args.sites)
+    paths = site_paths(args.sites)
+    spec = of.FeatureSpec(CANDIDATES, VOCABULARY_VERSION, LOOKBACK_DAYS)
+    edata, stages = build(paths, spec)
+    print(ep.pp.qc_metrics(edata)[1][["missing_values_pct", "median", "min", "max"]].round(2).to_string())
     print(" -> ".join(f"{name.replace(chr(10), ' ')} {value:,}" for name, value in stages.items()))
+    differences = standardised_difference(edata)
+    print(differences.round(3).to_string())
 
-    shares = profiles(args.raw, people["eid"].to_numpy())
-    keep = counts >= MIN_DIAGNOSES
-    coordinates = embedding(shares, keep)
-    print(f"embedded {keep.sum():,} people with at least {MIN_DIAGNOSES} diagnoses")
-
-    figure, axes = plt.subplots(2, 3, figsize=(15.5, 8.4))
+    second = spec.features[1]
+    figure, axes = plt.subplots(2, 2, figsize=(12, 9.0))
     funnel(axes[0, 0], stages)
-    implausible(axes[0, 1], sbp, metrics)
-    load(axes[0, 2], counts, metrics)
-    separation(axes[1, 0], bmi, case)
-    map_panel(axes[1, 1], coordinates, counts[keep], "Chapter profile, by history length", "diagnoses")
-    map_panel(
-        axes[1, 2],
-        coordinates,
-        shares[keep][:, list(CHAPTERS).index("E")] * 100,
-        "The same map, by endocrine share",
-        "% of codes in E",
-    )
+    case_rate(axes[0, 1], edata)
+    plausibility(axes[1, 0], raw_values(paths, second), second)
+    separation(axes[1, 1], edata, second.name)
     for axis in axes.ravel():
         axis.spines[["top", "right"]].set_visible(False)
-    figure.suptitle(args.title, fontsize=12)
+    figure.suptitle(args.title, fontsize=16)
     figure.tight_layout()
-    figure.savefig(args.out, dpi=170)
+    figure.savefig(args.out, dpi=300)
     print(f"wrote {args.out}")
 
 
