@@ -37,7 +37,7 @@ def tsv_reader(path):
         yield header, reader
 
 
-def index_files(source_dir):
+def index_files(source_dir, fields=FIELDS):
     paths = sorted(
         path for path in source_dir.rglob("*")
         if path.is_file() and (path.name.endswith(".tsv") or path.name.endswith(".tsv.gz"))
@@ -53,7 +53,7 @@ def index_files(source_dir):
             selected = []
             for index, name in enumerate(header[1:], start=1):
                 match = COLUMN_RE.fullmatch(name.strip())
-                if match and int(match.group(1)) in FIELDS:
+                if match and int(match.group(1)) in fields:
                     if name in seen_columns:
                         raise ValueError(f"Duplicate UKB column {name} in {path}")
                     seen_columns.add(name)
@@ -61,7 +61,7 @@ def index_files(source_dir):
                     selected.append((index, name))
             if selected:
                 indexed.append((path, selected))
-    missing = set(FIELDS) - found_fields
+    missing = set(fields) - found_fields
     if missing:
         raise ValueError(
             f"Missing UKB fields {sorted(missing)}. Add the tabular files containing them."
@@ -139,30 +139,33 @@ def choose_eids(indexed, participant_count, case_target, all_matching=False,
     return selected, case_count
 
 
-def column_order(name):
+def column_order(name, fields=FIELDS):
     match = COLUMN_RE.fullmatch(name)
-    return (FIELDS.index(int(match.group(1))), int(match.group(2)), int(match.group(3)))
+    return (fields.index(int(match.group(1))), int(match.group(2)), int(match.group(3)))
 
 
 def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=False,
-                all_matching=False, diagnosis_codes=(), diagnosis_prefixes=()):
+                all_matching=False, diagnosis_codes=(), diagnosis_prefixes=(), fields=FIELDS):
+    fields = tuple(dict.fromkeys(fields))
+    if not fields or any(field <= 0 for field in fields):
+        raise ValueError("Require one or more positive UKB field IDs")
     if all_e11 and (all_matching or diagnosis_codes or diagnosis_prefixes):
         raise ValueError("Use --all-e11 alone, or --all-matching with diagnosis filters")
     codes = tuple(normalize_code(code) for code in diagnosis_codes)
     prefixes = tuple(normalize_code(prefix) for prefix in diagnosis_prefixes)
-    if not codes and not prefixes:
+    if not codes and not prefixes and (all_e11 or all_matching or case_target):
         prefixes = ("E11",)
     for code in (*codes, *prefixes):
         if not re.fullmatch(r"[A-Z][A-Z0-9]{1,7}", code):
             raise ValueError(f"Invalid ICD-10 code or prefix: {code!r}")
     select_all = all_e11 or all_matching
-    indexed = index_files(source_dir)
+    indexed = index_files(source_dir, fields)
     selected, case_count = choose_eids(indexed, participant_count, case_target,
                                        select_all, codes, prefixes)
     selected_set = set(selected)
     columns = sorted(
         (name for _, file_columns in indexed for _, name in file_columns),
-        key=column_order,
+        key=lambda name: column_order(name, fields),
     )
     values = {eid: {} for eid in selected}
     source_files = []
@@ -176,7 +179,8 @@ def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=
                 raise ValueError(f"Duplicate EID {eid} in {path}")
             found.add(eid)
             for index, name in file_columns:
-                values[eid][name] = row[index] if index < len(row) else ""
+                if index < len(row) and row[index]:
+                    values[eid][name] = row[index]
             if len(found) == len(selected):
                 break
         missing = selected_set - found
@@ -193,13 +197,15 @@ def make_subset(source_dir, output_dir, participant_count, case_target, all_e11=
             writer.writerow([eid, *(values[eid].get(name, "") for name in columns)])
 
     manifest = {
-        "purpose": "UKB synthetic source subset for testing the four-table OMOP data contract",
+        "purpose": "UKB synthetic source subset for OMOP mapping tests",
         "participants": len(selected),
         "matching_diagnosis_participants_selected": case_count,
         "diagnosis_codes": list(codes),
         "diagnosis_prefixes": list(prefixes),
-        "selection": "all matching participants" if select_all else "diagnosis-enriched participant sample",
-        "field_ids": list(FIELDS),
+        "selection": ("all matching participants" if select_all else
+                      "diagnosis-enriched participant sample" if case_target else
+                      "first participants in input sample"),
+        "field_ids": list(fields),
         "source_files": source_files,
         "columns": columns,
         "output": str(output_path),
@@ -217,6 +223,8 @@ def main():
     parser.add_argument("--cases", type=int, default=20, help="Target diagnosis-positive participants")
     parser.add_argument("--all-e11", action="store_true", help="Select every E11-positive EID in the input, without filling with other EIDs")
     parser.add_argument("--all-matching", action="store_true", help="Select every EID matching the diagnosis filters")
+    parser.add_argument("--fields", type=int, nargs="+", default=list(FIELDS),
+                        help="UKB field IDs to include; defaults to the original pilot fields")
     parser.add_argument("--diagnosis-code", action="append", default=[], help="Exact ICD-10 code; repeatable")
     parser.add_argument("--diagnosis-prefix", action="append", default=[], help="ICD-10 family prefix; repeatable")
     args = parser.parse_args()
@@ -227,7 +235,7 @@ def main():
     print(json.dumps(
         make_subset(args.input, args.output, args.participants, args.cases,
                     args.all_e11, args.all_matching, args.diagnosis_code,
-                    args.diagnosis_prefix), indent=2
+                    args.diagnosis_prefix, args.fields), indent=2
     ))
 
 

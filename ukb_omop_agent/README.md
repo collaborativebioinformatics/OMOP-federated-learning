@@ -101,6 +101,10 @@ Add `--diagnosis-code E110` for one exact ICD10 code (equivalent to `E11.0`), or
 
 The output is a **pilot subset** of OMOP 5.4 tables: person, observation_period, condition_occurrence, measurement, observation, and procedure_occurrence. Unapproved source events remain with concept ID 0 in the configured fallback domain. The QC checks exact replay, unique row IDs, and person foreign keys. It also reports input events, mapped events by field, exclusions, and unknown units. Coverage and replay QC do not establish clinical correctness.
 
+## AD, PD, T2D, and blood assays
+
+For the 10,000-participant **AD, PD, T2D, glucose, HDL, LDL, triglycerides, and cholesterol** analysis, use the [UKB disease and lab workflow](ukb/AD_PD_T2D_LABS.md). Its scripts and versioned specification are part of `ukb_omop_agent/`; it calls the same `general_agent.py` for inspect, apply, and QC. `solvi/` is only the local output directory for prepared input, mapping results, and figures. From the repository root, run `bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh` with the subcommands in that guide.
+
 ## Other source layouts
 
 `specs/flat_events_example_v1.json` shows the second adapter. It reads a row-per-event CSV with patient ID, demographics, source field, event kind (`coded` or `numeric`), vocabulary, code, date, numeric value, and unit. Copy the spec and change its column names and unit map to match a new source. The same inspect, apply, and QC commands then work with that input. The UKB-specific field numbers and rules stay only in `ukb_pilot_v1.json`.

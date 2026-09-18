@@ -11,6 +11,32 @@ spec.loader.exec_module(subset)
 
 
 class SubsetSelectionTests(unittest.TestCase):
+    def test_custom_fields_keep_all_rows_without_diagnosis_enrichment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "people.tsv").write_text(
+                "EID\t31-0.0\t34-0.0\t41270-0.0\n"
+                "1\t0\t1970\t\n"
+                "2\t1\t1980\tG20\n"
+            )
+            (source / "labs.tsv").write_text(
+                "EID\t30740-0.0\n"
+                "1\t5.1\n"
+                "2\t6.2\n"
+            )
+            result = subset.make_subset(source, root / "out", 2, 0,
+                                        fields=(31, 34, 30740, 41270))
+            self.assertEqual(result["participants"], 2)
+            self.assertEqual(result["diagnosis_prefixes"], [])
+            self.assertEqual(result["selection"], "first participants in input sample")
+            self.assertEqual((root / "out" / "ukb_subset.tsv").read_text().splitlines(), [
+                "EID\t31-0.0\t34-0.0\t30740-0.0\t41270-0.0",
+                "1\t0\t1970\t5.1\t",
+                "2\t1\t1980\t6.2\tG20",
+            ])
+
     def test_selects_exact_code_or_family_without_confusing_other_diagnoses(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -136,6 +136,10 @@ synthea_cohorts/cohort_1/data/omop/
 synthea_cohorts/cohort_3/data/omop/
 examples/.bench_*/
 examples/omop_t2dm/workspace/
+
+# Local UKB workflow inputs and outputs
+/solvi/data/
+/solvi/results/
 examples/.synthea1k/
 examples/mimic_mortality/data/
 examples/mimic_mortality/spec.json

@@ -29,6 +29,7 @@ class GeneralAgentTests(unittest.TestCase):
             (4, "Body mass index", "Measurement", "LOINC", "S", "39156-5"),
             (5, "kg per square metre", "Unit", "UCUM", "S", "kg/m2"),
             (6, "Female", "Gender", "Gender", "S", "F"),
+            (7, "Standard algorithm", "Type Concept", "Type Concept", "S", "OMOP4976953"),
         ]
         with (vocabulary / "CONCEPT.csv").open("w", newline="") as stream:
             writer = csv.writer(stream, delimiter="\t")
@@ -55,6 +56,8 @@ class GeneralAgentTests(unittest.TestCase):
                         "event_date": "date", "value_number": "value_number", "unit_source": "unit"},
             "code_normalization": "exact_casefold", "fallback_domain": "Observation",
             "unit_map": {"kg/m2": 5},
+            "observation_period": {"method": "selected_event_span", "type_concept_id": 7,
+                                   "evidence": "Fixture event span"},
         }
         return source, config, vocabulary
 
@@ -89,6 +92,13 @@ class GeneralAgentTests(unittest.TestCase):
             with (output / "measurement.csv").open(newline="") as stream:
                 measurement = list(csv.DictReader(stream))[0]
             self.assertEqual((measurement["measurement_concept_id"], measurement["unit_concept_id"]), ("4", "5"))
+            with (output / "observation_period.csv").open(newline="") as stream:
+                period = list(csv.DictReader(stream))[0]
+            self.assertEqual((period["observation_period_start_date"],
+                              period["observation_period_end_date"],
+                              period["period_type_concept_id"]),
+                             ("2020-01-01", "2020-01-02", "7"))
+            self.assertEqual(report["observation_period_rule"], config["observation_period"])
             self.assertTrue(agent.run_apply(source, config, vocabulary, review, output, check_only=True)["pass"])
             entries, summary = inventory.build_inventory(root / "review", output, review)
             self.assertEqual((summary["mapped_source_records"], summary["unmapped_dated_records"]), (2, 0))

@@ -46,6 +46,13 @@ def read_spec(path):
             raise ValueError(f"Local mapping for {field.get('field_id')} lacks evidence")
     if spec["adapter"] == "flat_events" and not spec.get("columns"):
         raise ValueError("Flat-events spec lacks columns")
+    period = spec.get("observation_period")
+    if period is not None:
+        if (period.get("method") != "selected_event_span"
+                or not isinstance(period.get("type_concept_id"), int)
+                or period["type_concept_id"] <= 0
+                or not period.get("evidence")):
+            raise ValueError("observation_period needs selected_event_span, a positive type_concept_id, and evidence")
     return spec
 
 
@@ -467,7 +474,8 @@ def transform(people, events, approved, candidates, metadata, spec):
         event_dates[person_ids[event["person"]]].append(event["date"])
     for person_id, dates in sorted(event_dates.items()):
         tables["observation_period"].append([len(tables["observation_period"]) + 1,
-                                              person_id, min(dates), max(dates), 0])
+                                              person_id, min(dates), max(dates),
+                                              spec.get("observation_period", {}).get("type_concept_id", 0)])
     report = {"spec": spec["name"], "table_rows": {name: len(rows) for name, rows in tables.items()},
               "input_events": len(events), "dated_events": sum(bool(event["date"]) for event in events),
               "source_events_by_field": dict(collections.Counter(event["field_id"] for event in events)),
@@ -492,7 +500,11 @@ def transform(people, events, approved, candidates, metadata, spec):
               ],
               "unmapped_units": [{"field_id": field, "unit": unit, "records": count}
                                  for (field, unit), count in sorted(unmapped_units.items())],
-              "mapping_note": "Approved multi-target mappings may create multiple OMOP rows; observation periods are technical event spans."}
+              "observation_period_rule": spec.get("observation_period", {
+                  "method": "selected_event_span", "type_concept_id": 0,
+                  "evidence": "Technical span of selected dated events; provenance type unspecified."}),
+              "observation_period_single_day_rows": sum(len(set(dates)) == 1 for dates in event_dates.values()),
+              "mapping_note": "Approved multi-target mappings may create multiple OMOP rows; observation periods are technical event spans, not verified longitudinal follow-up."}
     return tables, report
 
 
@@ -552,7 +564,12 @@ def run_apply(source, spec, vocabulary, review, output, check_only=False,
     ids.update(event["unit_concept_id"] for event in events if event["unit_concept_id"])
     ids.update(gender for gender, _ in people.values() if gender)
     ids.update(event["type_concept_id"] for event in events if event["type_concept_id"])
+    period_type_id = spec.get("observation_period", {}).get("type_concept_id", 0)
+    if period_type_id:
+        ids.add(period_type_id)
     metadata = target_metadata(vocabulary, ids)
+    if period_type_id and metadata[period_type_id]["domain_id"] != "Type Concept":
+        raise ValueError("Configured observation period type is not a standard Type Concept")
     for gender, _ in people.values():
         if gender and metadata[gender]["domain_id"] != "Gender":
             raise ValueError(f"Configured gender concept {gender} has wrong domain")
