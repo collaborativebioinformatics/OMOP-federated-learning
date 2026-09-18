@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "flat_events_example_v1",
+  "adapter": "flat_events",
+  "delimiter": ",",
+  "person": {
+    "id_column": "patient_id",
+    "sex_column": "sex",
+    "birth_year_column": "birth_year",
+    "sex_map": {"F": 8532, "M": 8507}
+  },
+  "columns": {
+    "field_id": "source_field",
+    "kind": "event_kind",
+    "source_vocabulary": "vocabulary",
+    "source_code": "code",
+    "event_date": "date",
+    "value_number": "value_number",
+    "unit_source": "unit"
+  },
+  "code_normalization": "exact_casefold",
+  "fallback_domain": "Observation",
+  "unit_map": {"kg/m2": 9531, "mm[Hg]": 8876}
+}

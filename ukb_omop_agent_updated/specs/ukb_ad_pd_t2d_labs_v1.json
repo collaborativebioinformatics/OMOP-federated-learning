@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "name": "ukb_ad_pd_t2d_labs_v1",
+  "adapter": "ukb_wide",
+  "delimiter": "\t",
+  "person": {
+    "id_column": "EID",
+    "sex_column": "31-0.0",
+    "birth_year_column": "34-0.0",
+    "sex_map": {"0": 8532, "1": 8507}
+  },
+  "observation_period": {
+    "method": "selected_event_span",
+    "type_concept_id": 32880,
+    "evidence": "Standard algorithm: earliest to latest retained, dated AD/PD/T2D diagnosis or selected lab event per person. This is a technical event span, not verified UKB follow-up or continuous capture."
+  },
+  "fields": [
+    {
+      "field_id": "30740",
+      "kind": "numeric",
+      "date_field": "53",
+      "date_array": "0",
+      "target_concept_ids": [3013826],
+      "unit_concept_id": 8753,
+      "evidence": "UKB 30740 Glucose, mmol/L; LOINC 14749-6 Glucose [Moles/volume] in Serum or Plasma; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=30740"
+    },
+    {
+      "field_id": "30760",
+      "kind": "numeric",
+      "date_field": "53",
+      "date_array": "0",
+      "target_concept_ids": [3023602],
+      "unit_concept_id": 8753,
+      "evidence": "UKB 30760 HDL cholesterol, mmol/L; LOINC 14646-4 Cholesterol in HDL [Moles/volume] in Serum or Plasma; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=30760"
+    },
+    {
+      "field_id": "30780",
+      "kind": "numeric",
+      "date_field": "53",
+      "date_array": "0",
+      "target_concept_ids": [42870529],
+      "unit_concept_id": 8753,
+      "evidence": "UKB 30780 LDL direct, mmol/L; LOINC 69419-0 Cholesterol in LDL [Moles/volume] in Serum or Plasma by Direct assay; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=30780"
+    },
+    {
+      "field_id": "30870",
+      "kind": "numeric",
+      "date_field": "53",
+      "date_array": "0",
+      "target_concept_ids": [3025839],
+      "unit_concept_id": 8753,
+      "evidence": "UKB 30870 Triglycerides, mmol/L; LOINC 14927-8 Triglyceride [Moles/volume] in Serum or Plasma; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=30870"
+    },
+    {
+      "field_id": "30690",
+      "kind": "numeric",
+      "date_field": "53",
+      "date_array": "0",
+      "target_concept_ids": [3019900],
+      "unit_concept_id": 8753,
+      "evidence": "UKB 30690 Cholesterol, mmol/L; LOINC 14647-2 Cholesterol [Moles/volume] in Serum or Plasma; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=30690"
+    },
+    {
+      "field_id": "41270",
+      "kind": "coded",
+      "date_field": "41280",
+      "date_array": "same",
+      "source_vocabulary": "ICD10",
+      "code_normalization": "icd10_dots",
+      "fallback_domain": "Condition",
+      "evidence": "UKB 41270 hospital inpatient diagnoses use ICD-10; https://biobank.ndph.ox.ac.uk/ukb/field.cgi?id=41270"
+    }
+  ]
+}
