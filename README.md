@@ -134,20 +134,29 @@ Federation pays off only when the sites differ.
 
 Eight centres within 0.03 SD of the pooled mean are eight copies of one cohort. One cohort has something to federate, the other does not, and the figures say so before anyone trains.
 
+<p>
+<img src="presentation/figures/qc_synthea_cohort_2.png" width="49%" alt="Synthea cohort_2 before any modelling: cohort funnel, case rate by site, systolic blood pressure against the plausible range, cases against controls">
+<img src="presentation/figures/qc_ukb.png" width="49%" alt="UK Biobank synthetic extract before any modelling: cohort funnel, case rate by site, systolic blood pressure against the plausible range, cases against controls">
+</p>
+
 ### Federation recovers what fragmentation costs
 
-![Accuracy of local, federated and pooled training as one cohort is split across more sites](examples/fl_benchmark.png)
+![Fragmenting a cohort costs a local model 10 AUROC points; federating recovers them](presentation/figures/federation_benchmark.png)
 
 One real cohort of 964 patients, split across 1 to 16 sites.
-Alone, a site falls from 0.87 to 0.77. Federated, it holds at 0.87 to 0.92, level with pooled. Nobody shared a row.
+Alone, a site falls from 0.87 to 0.77 AUROC, ten points lost to fragmentation. Federated, it holds at 0.87 to 0.92, level with pooled. Nobody shared a row.
 
 **Five Synthea sites that differ** ([details](examples/synthea_diabetes/README.md)): federated AUROC 0.582 against 0.586 pooled, while the smallest site alone scores 0.433, worse than chance. With 23 held-out cases the intervals overlap; they support federated matching pooled, not a significant pairwise gap.
 
+![Incident type 2 diabetes across five Synthea sites: what each site holds, AUROC per site against federated and pooled, and how single-site estimates scatter](presentation/figures/federated_synthea_sites.png)
+
 **UK Biobank, the negative control** ([details](examples/ukb_diabetes/README.md)): 40,671 people in eight centres, 198 incident cases. The synthetic fields are drawn independently, so no model beats chance, and none does. Single sites still show apparent signal, 0.430 to 0.575, while federated scores 0.511.
 
-**At scale:** 1,000,000 patients and 3.39 billion rows. Scan 7.9 s, feature matrix 7.7 s, one epoch 1.1 s, 6.2 GB of memory. A real NVFlare job with three clients takes 42 s for five rounds.
+![Incident type 2 diabetes across eight UK Biobank assessment centres: every interval covers 0.5](presentation/figures/federated_ukb_centres.png)
 
-![Scan, feature matrix and training time as the cohort grows to 1 million patients](examples/scale_benchmark.png)
+**At scale:** 1,000,000 patients and 3.39 billion rows. Scan 7.9 s, feature matrix 7.7 s, one epoch 1.1 s, 6.2 GB of memory. A real NVFlare job with three clients takes 42 s for five rounds, 8.4 s per round.
+
+![Time and memory as one site grows to 1 million patients: ten times the data costs ten times the time, 1000 times the rows costs 6 times the memory](presentation/figures/scale.png)
 
 ### Slides
 
