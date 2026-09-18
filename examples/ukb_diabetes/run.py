@@ -1,9 +1,4 @@
-"""Federated incident-diabetes risk across OMOP sites, against a local-only and a pooled reference.
-
-Three models are fitted on the same training people, standardised with the same federated scaler,
-and scored on the same held-out people, so the only difference between them is how much data each
-one was allowed to see.
-"""
+"""Federated incident-diabetes risk across OMOP sites, against a local-only and a pooled reference."""
 
 from __future__ import annotations
 
@@ -47,9 +42,6 @@ def negotiate(paths: tuple[Path, ...]) -> of.FeatureSpec:
 
 def prepare(paths: tuple[Path, ...], spec: of.FeatureSpec) -> tuple[dict[str, dict], of.SiteStats]:
     """Validate every site, then build its cohorts and the federated scaler.
-
-    Only counts, sums and sums of squares of the training half leave a site, so the scaler is
-    federated and the held-out half never touches it.
 
     Args:
         paths: One directory per site.

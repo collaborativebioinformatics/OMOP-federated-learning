@@ -42,10 +42,6 @@ def site_paths(root: Path) -> tuple[Path, ...]:
 def index_table(source: of.OmopSource) -> pa.Table:
     """Build the landmark and the incident-diabetes label for one site.
 
-    The landmark is the day after the first assessment, so the assessment's own measurements fall
-    inside the lookback window and none of them is read on or after the landmark.
-    People already diagnosed before the landmark are prevalent cases and leave the cohort.
-
     Args:
         source: The site to read from.
 

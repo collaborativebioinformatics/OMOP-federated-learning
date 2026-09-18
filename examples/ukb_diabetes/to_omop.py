@@ -18,7 +18,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw", type=Path, default=HERE / "data" / "raw")
     parser.add_argument("--out", type=Path, default=HERE / "data" / "omop")
-    parser.add_argument("--mapping", type=Path, default=HERE / "ukb_synthetic_v1.yaml")
+    parser.add_argument("--mapping", type=Path, default=HERE.parents[1] / "omop_skill" / "mappings" / "ukb_pilot.yaml")
     args = parser.parse_args()
 
     sites = sorted(path for path in args.raw.iterdir() if path.is_dir())

@@ -1,86 +1,74 @@
 # Raw UK Biobank to federated diabetes risk
 
-The whole pipeline in one folder.
 The official UK Biobank synthetic tabular extract goes in, OMOP comes out, and NVFlare trains an incident type 2 diabetes model across assessment centres without moving a row of patient data.
 
 ```bash
 python ../../ukb_omop_agent/ukb/sample_ukb_fields.py --rows 100000 \
   --output ../../ukb_omop_agent/ukb/data/ukb_sampled   # raw UKB, ~2.7 GB
-python prepare.py        # wide UKB TSVs -> one raw CSV folder per assessment centre
-python to_omop.py        # raw CSVs -> OMOP, mapped and validated by the omop-etl skill
-python explore.py        # what the mapped cohort looks like, with ehrapy
+python prepare.py        # one raw folder per assessment centre, still in UKB's wide layout
+python to_omop.py        # raw -> OMOP, mapped and validated by the omop-etl skill
+python explore.py        # what the source holds, with ehrapy
 python run.py            # omopflare + NVFlare FedAvg, against local and pooled references
 python figures.py
 ```
 
-## What each step does
+![cohort overview](cohort_overview_ukb.png)
 
-`prepare.py` is source preparation only.
-It reshapes UKB's wide instance and array columns into per-event rows and splits people by assessment centre (field 54), which gives real sites rather than a random split.
-No code becomes a concept here.
+## Steps
 
-`to_omop.py` runs the `omop-etl` skill with `ukb_synthetic_v1.yaml` and validates every site against `contract/data_contract.md`.
-All eight sites pass.
+`prepare.py` splits people by assessment centre (field 54).
+That gives real sites, where `omop_skill/scripts/split_sites.py` would split on `person_id % n`.
+The wide UKB layout is left alone so the mapping does the reshaping.
 
-`explore.py` stacks the mapped sites into one `AnnData` and uses ehrapy for coverage, per-site distributions and a PCA.
+`to_omop.py` runs the `omop-etl` skill with `omop_skill/mappings/ukb_pilot.yaml` and validates every site against the contract.
+All eight pass.
+That mapping was written independently of this example and reproduces the same row counts.
 
-`run.py` negotiates a feature spec across sites with `omopflare`, standardises with a scaler built from counts and sums that each site releases, then fits three models on the same people and scores them on the same held-out people: one per site alone, one federated with NVFlare FedAvg, and one pooled as the upper bound.
-Every model gets the same number of passes over its data, so the only difference is how much data it may see.
+`explore.py` loads the participants as an `EHRData`, reports `ehrapy.preprocessing.qc_metrics`, and draws the six panels above.
+It reads the raw per-centre files, because the mapping keeps only the two measurements and the one condition the study needs.
+
+`run.py` negotiates a feature spec with `omopflare`, standardises with a scaler built from counts and sums each site releases, then fits one model per site, one federated with NVFlare FedAvg, and one pooled.
+All three see the same training people, the same scaler, the same held-out people and the same number of passes.
 
 ## Mapping decisions
 
-ICD-10 `E11.0` through `E11.9` all map to concept 201826, type 2 diabetes mellitus.
-The contract permits only that concept, so the subtypes roll up to their parent instead of to the more specific SNOMED concepts a full Athena vocabulary would offer.
+Every ICD-10 code starting `E11` maps to concept 201826, type 2 diabetes mellitus.
+The contract permits only that concept, so the subtypes roll up to their parent rather than to the more specific SNOMED concepts a full Athena vocabulary would offer.
 
-Array slot 0 of field 41270 has no matching slot in field 41280, so those 82,045 codes have no date and cannot become dated events.
+Array slot 0 of field 41270 has no matching slot in field 41280, so those 82,045 codes have no date and the mapping's inner join drops them.
 
-The observation period spans a person's dated events, because the synthetic extract ships no enrolment table.
+The observation period spans every date UKB records for a person, including diagnoses outside the study's concept scope.
+Deriving it from `condition_occurrence` instead ends most people's period on their assessment day, and a landmark after the assessment then keeps only the people who have diabetes.
 
 ## Cohort
 
-The landmark is the day after the first assessment, so that assessment's own measurements sit inside the lookback window and nothing is read on or after the landmark.
-People already diagnosed before the landmark are prevalent cases and leave the cohort.
-People whose record ends at the landmark leave too, because an incident diagnosis cannot be observed in someone with no follow-up.
+The landmark is the day after the first assessment, so that assessment's measurements sit inside the lookback window and nothing is read on or after the landmark.
+People diagnosed before the landmark are prevalent cases and leave.
+People whose record ends at the landmark leave too, because an incident diagnosis cannot be observed without follow-up.
 That leaves 40,671 people across eight centres, 198 of them incident cases.
 
-## What UK Biobank synthetic can and cannot show
+## What this data can and cannot show
 
 UK Biobank generates each field of the synthetic dataset independently, and the data confirms it.
 Mean BMI is 27.42 in the diabetic group and 27.52 in the rest, sex 0.308 against 0.310, birth year 1952.7 against 1953.1.
-There is no association to find, so no model can beat chance here, and none does.
+No model can beat chance here, and none does.
 
-That makes this run a negative control, and a useful one.
+That makes this a negative control.
 Every AUROC interval covers 0.5, and `omopflare`'s leakage report finds nothing: per-feature AUROCs are 0.500 to 0.503.
-Single sites still produce apparent signal, which is the point.
-The eight per-centre models score between 0.444 and 0.560 on the same held-out cohort while the federated model scores 0.505, and single-site BMI coefficients range from below zero to above 0.6 while the federated estimate sits beside the pooled one.
+Single sites still report apparent signal, which is the point.
+The eight per-centre models score 0.430 to 0.575 on the same held-out cohort while the federated model scores 0.511, and single-site BMI coefficients run from -0.41 to +0.65 against a federated 0.05 and a pooled 0.02.
+Refit on another split those numbers move, as fitting noise should.
 
-The PCA shows the sites overlapping almost exactly, so the synthetic generator erases the geographic differences that make real assessment centres worth federating over.
+The overview says the same before any model runs.
+BMI differs by +0.06 kg/m² between the groups.
+Systolic blood pressure runs from 48 to 8,242 mmHg with 280 readings at that maximum, so the plausible range drops 7% of readings as sentinels rather than measurements.
+18% of people have no hospital record, and the rest carry a median of 25 diagnoses.
 
-## The same code where there is signal
+The UMAP embeds each person's share of diagnoses per ICD-10 chapter, for the 39,548 people with at least five codes.
+People with long histories converge on the population composition and people with short ones scatter, which is what multinomial sampling noise looks like.
+There are no subpopulations because the generator draws codes at random.
 
-Synthea models disease progression, so BMI genuinely predicts diabetes there, and `cohort_2` was built with per-site population parameters that make the sites differ.
-
-```bash
-python explore.py --sites ../../synthea_cohorts/cohort_2/data/omop \
-  --out cohort_overview_synthea.png --title "Synthea cohort_2 after OMOP mapping"
-python run.py --sites ../../synthea_cohorts/cohort_2/data/omop --job synthea_fedavg --tag synthea
-python figures.py --results results_synthea.json --out federated_vs_local_synthea.png \
-  --title "Incident type 2 diabetes across Synthea sites"
-```
-
-| model | AUROC | 95% CI |
-| --- | --- | --- |
-| site_d alone, 350 people | 0.433 | 0.343 to 0.523 |
-| site_b alone | 0.541 | 0.447 to 0.635 |
-| site_e alone | 0.563 | 0.465 to 0.659 |
-| site_a alone | 0.578 | 0.493 to 0.666 |
-| site_c alone | 0.606 | 0.518 to 0.694 |
-| federated | 0.582 | 0.499 to 0.675 |
-| pooled | 0.586 | 0.503 to 0.674 |
-
-FedAvg recovers the pooled model, 0.582 against 0.586, without any site sharing a row.
-The smallest site would have done worse than chance on its own and is the one federation helps most.
-With 23 positives in the held-out cohort these intervals overlap heavily, so the claim this supports is that federated matches pooled and beats the weakest site, not that any single pair differs significantly.
+For the accuracy claim, [`../synthea_diabetes`](../synthea_diabetes) runs the same scripts on data that has signal.
 
 ## Limits
 

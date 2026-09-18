@@ -53,6 +53,7 @@ A one-page summary of the whole project is in [`docs/index.html`](docs/index.htm
 | --- | --- |
 | `src/omopflare` | the library: OMOP feature extraction for federated learning ([README](src/omopflare/README.md)) |
 | `examples/ukb_diabetes` | the whole pipeline: raw UK Biobank to OMOP to federated diabetes risk ([README](examples/ukb_diabetes/README.md)) |
+| `examples/synthea_diabetes` | the same pipeline on data that has signal ([README](examples/synthea_diabetes/README.md)) |
 | `examples/omop_t2dm` | federated T2DM risk over any cohort's sites |
 | `examples/` | NVFlare hello-world samples and earlier demos |
 | `synthea_cohorts` | the cohorts, one folder per generation method |
