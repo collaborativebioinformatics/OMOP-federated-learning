@@ -1,4 +1,5 @@
 from .features import design_matrix, extract, to_matrix
+from .leakage import FeatureLeak, leakage_report
 from .loader import CohortDataset, StreamingCohort, dataloader, site_statistics
 from .propose import concept_counts, propose_spec
 from .sequence import extract_sequence, to_ehrdata
@@ -11,6 +12,7 @@ __all__ = [
     "MIN_CELL_COUNT",
     "CohortDataset",
     "Feature",
+    "FeatureLeak",
     "FeatureSpec",
     "Finding",
     "OmopSource",
@@ -23,6 +25,7 @@ __all__ = [
     "errors",
     "extract",
     "extract_sequence",
+    "leakage_report",
     "prevalence",
     "propose_spec",
     "site_statistics",

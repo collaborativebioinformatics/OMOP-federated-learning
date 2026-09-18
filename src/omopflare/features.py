@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from .spec import CONCEPT_COLUMN, DATE_COLUMN, VALUE_COLUMN, Feature, FeatureSpec
 
 INDEX_TABLE = "omopflare_index"
+EFFECTIVE_INDEX = "omopflare_index_effective"
 Layout = Literal["dense", "sparse", "auto"]
 Index = Union[str, pa.Table, "duckdb.DuckDBPyRelation"]
 
@@ -51,7 +52,7 @@ def _domain_query(source: OmopSource, spec: FeatureSpec, domain: str) -> str | N
     select person_id, {", ".join(picks)}
     from (
         select i.person_id, e.{date} as e_date, {", ".join(cases)}
-        from {INDEX_TABLE} i
+        from {EFFECTIVE_INDEX} i
         join {domain} e on e.person_id = i.person_id
         where e.{date} < i.index_date
           and e.{date} >= i.index_date - interval '{spec.lookback_days}' day
@@ -77,6 +78,54 @@ def as_table(source: OmopSource, index: Index) -> pa.Table:
     return index.rename_columns([name.lower() for name in index.column_names])
 
 
+def design_query(source: OmopSource, spec: FeatureSpec, index: Index) -> str:
+    """Build the SQL that produces one landmarked row per person.
+
+    Args:
+        source: The site to read from.
+        spec: The frozen feature schema.
+        index: SQL, a duckdb relation or an Arrow table with ``person_id`` and ``index_date``.
+
+    Returns:
+        A query with a ``person_id`` column and one ``f<position>`` column per feature.
+
+    Raises:
+        ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent.
+    """
+    index = as_table(source, index)
+    missing = {"person_id", "index_date"} - set(index.column_names)
+    if missing:
+        raise ValueError(f"index table is missing {sorted(missing)}")
+
+    source.connection.register(INDEX_TABLE, index)
+    if source.has("observation_period"):
+        source.connection.execute(
+            f"""
+            create or replace temporary view {EFFECTIVE_INDEX} as
+            select i.person_id, i.index_date
+            from {INDEX_TABLE} i
+            join observation_period o on o.person_id = i.person_id
+            where i.index_date between o.observation_period_start_date and o.observation_period_end_date
+            """
+        )
+    else:
+        source.connection.execute(f"create or replace temporary view {EFFECTIVE_INDEX} as select * from {INDEX_TABLE}")
+
+    parts = [q for domain in spec.domains if (q := _domain_query(source, spec, domain))]
+    if not parts:
+        raise ValueError("none of the spec's domains are present at this site")
+
+    selects = ["base.person_id"]
+    froms = [f"(select person_id from {EFFECTIVE_INDEX}) base"]
+    for number, part in enumerate(parts):
+        froms.append(f"left join ({part}) d{number} on d{number}.person_id = base.person_id")
+    for position in range(len(spec.features)):
+        alias = f"f{position}"
+        owner = next((f"d{n}" for n, part in enumerate(parts) if f"as {alias}" in part), None)
+        selects.append(f"{owner}.{alias}" if owner else f"cast(null as double) as {alias}")
+    return f"select {', '.join(selects)} from {' '.join(froms)}"
+
+
 def extract(
     source: OmopSource,
     spec: FeatureSpec,
@@ -100,39 +149,7 @@ def extract(
     Raises:
         ValueError: If ``index`` lacks the required columns, or the spec's domains are all absent from the site.
     """
-    index = as_table(source, index)
-    missing = {"person_id", "index_date"} - set(index.column_names)
-    if missing:
-        raise ValueError(f"index table is missing {sorted(missing)}")
-
-    source.connection.register(INDEX_TABLE, index)
-    if source.has("observation_period"):
-        source.connection.execute(
-            f"""
-            create or replace temporary view {INDEX_TABLE}_clipped as
-            select i.person_id, i.index_date
-            from {INDEX_TABLE} i
-            join observation_period o on o.person_id = i.person_id
-            where i.index_date between o.observation_period_start_date and o.observation_period_end_date
-            """
-        )
-
-    parts = [q for domain in spec.domains if (q := _domain_query(source, spec, domain))]
-    aliases = [f"f{position}" for position in range(len(spec.features))]
-
-    if not parts:
-        raise ValueError("none of the spec's domains are present at this site")
-
-    joined = f"select person_id from {INDEX_TABLE}"
-    selects = ["base.person_id"]
-    froms = [f"({joined}) base"]
-    for number, part in enumerate(parts):
-        froms.append(f"left join ({part}) d{number} on d{number}.person_id = base.person_id")
-    for alias in aliases:
-        owner = next((f"d{n}" for n, part in enumerate(parts) if f"as {alias}" in part), None)
-        selects.append(f"{owner}.{alias}" if owner else f"cast(null as double) as {alias}")
-
-    query = f"select {', '.join(selects)} from {' '.join(froms)}"
+    query = design_query(source, spec, index)
     yield from source.connection.execute(query).to_arrow_reader(batch_size)
 
 

@@ -153,6 +153,10 @@ Numeric features pin a `unit_concept_id`; rows in other units are dropped, not c
 In OMOP `concept_id = 0` means present but unmapped, not absent.
 
 `extract` reads only events strictly before `index_date`, within `lookback_days`, and inside the observation period.
+A patient whose landmark falls outside their coverage drops out rather than contributing a row of nulls.
+
+`leakage_report` checks whether being measured, rather than what was measured, predicts the outcome.
+It returns per-feature prevalence among measured and unmeasured patients, and errors when presence alone decides the label.
 
 `SiteStats` holds count, sum and sum of squares, which combine into one scaler.
 Min and max are excluded because each is a single patient's value.

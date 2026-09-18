@@ -4,8 +4,8 @@
 
 This guide covers two connected stages:
 
-- **Part A** — Install Synthea and generate a synthetic patient population (CSV export)
-- **Part B** — Map that data into the OMOP Common Data Model (CDM v5.4)
+- **Part A**: Install Synthea and generate a synthetic patient population (CSV export)
+- **Part B**: Map that data into the OMOP Common Data Model (CDM v5.4)
 
 Synthea has no OMOP exporter, so both routes convert its CSV output.
 **Part B1** runs on duckdb and needs no server and no Athena account; use **Part B2** only when you need the reference ETL the data contract names.
@@ -25,7 +25,7 @@ Synthea has no OMOP exporter, so both routes convert its CSV output.
 
 ---
 
-## Part A — Generate Synthetic Data with Synthea
+## Part A: Generate Synthetic Data with Synthea
 
 ### A1. Clone and build
 
@@ -44,7 +44,7 @@ exporter.csv.export = true
 exporter.fhir.export = false
 ```
 
-CSV is what the ETL tool expects — FHIR isn't needed for this path.
+CSV is what the ETL tool expects, FHIR isn't needed for this path.
 
 ### A3. Generate a population
 
@@ -56,7 +56,7 @@ CSV is what the ETL tool expects — FHIR isn't needed for this path.
 - `-s 12345` → fixed seed (reproducible)
 - `Massachusetts` → state (optional city can follow)
 
-Output lands in `output/csv/` — you should see files like `patients.csv`, `encounters.csv`, `conditions.csv`, `medications.csv`, `procedures.csv`, `observations.csv`, etc.
+Output lands in `output/csv/`, you should see files like `patients.csv`, `encounters.csv`, `conditions.csv`, `medications.csv`, `procedures.csv`, `observations.csv`, etc.
 
 ### A4. Sanity-check the output
 
@@ -67,7 +67,7 @@ head -5 output/csv/patients.csv
 
 ---
 
-## Part B1 — ETL into OMOP CDM with dbt-synthea (no Athena, no server)
+## Part B1: ETL into OMOP CDM with dbt-synthea (no Athena, no server)
 
 [OHDSI/dbt-synthea](https://github.com/OHDSI/dbt-synthea) reimplements the ETL-Synthea mapping in dbt and runs on duckdb.
 It ships the OMOP vocabulary as dbt seeds, so nothing has to be downloaded from Athena.
@@ -114,7 +114,7 @@ Its README names `convert_to_parquet.py`, but the script is `scripts/python/csv_
 
 ---
 
-## Part B2 — ETL into OMOP CDM with ETL-Synthea (Postgres + R + Athena)
+## Part B2: ETL into OMOP CDM with ETL-Synthea (Postgres + R + Athena)
 
 Use this route when you need the reference ETL named in the data contract.
 
@@ -122,7 +122,7 @@ Use this route when you need the reference ETL named in the data contract.
 
 1. Create a free account at https://athena.ohdsi.org
 2. Select vocabularies you need (at minimum: SNOMED, RxNorm, LOINC, and the "OMOP genomic" defaults)
-3. Download and unzip — you'll get files like `CONCEPT.csv`, `VOCABULARY.csv`, `CONCEPT_RELATIONSHIP.csv`, etc.
+3. Download and unzip, you'll get files like `CONCEPT.csv`, `VOCABULARY.csv`, `CONCEPT_RELATIONSHIP.csv`, etc.
 
 ```bash
 mkdir -p ~/omop/vocabulary
@@ -151,7 +151,7 @@ devtools::install_github("OHDSI/ETL-Synthea")
 install.packages("DatabaseConnector")
 ```
 
-(`DatabaseConnector` will also prompt to download the PostgreSQL JDBC driver the first time you connect — accept that.)
+(`DatabaseConnector` will also prompt to download the PostgreSQL JDBC driver the first time you connect, accept that.)
 
 ### B4. Run the ETL
 
@@ -209,7 +209,7 @@ Row counts should roughly track your Synthea population size and each patient's 
 
 ### B6. (Recommended) Run OHDSI Data Quality checks
 
-Once loaded, run OHDSI's **Data Quality Dashboard (DQD)** or **ACHILLES** against `cdm_synthea` to check conformance, completeness, and plausibility — this catches mapping gaps before you build cohorts on top of the data.
+Once loaded, run OHDSI's **Data Quality Dashboard (DQD)** or **ACHILLES** against `cdm_synthea` to check conformance, completeness, and plausibility, this catches mapping gaps before you build cohorts on top of the data.
 
 ```r
 install.packages("remotes")
@@ -250,8 +250,10 @@ Then run the R script from **B4** to complete the OMOP load.
 
 ## Notes and gotchas
 
-- **CDM version**: `ETLSyntheaBuilder` currently targets CDM v5.3/5.4 depending on the release — pin the package version if you need exact compatibility with a downstream tool like ATLAS.
-- **Vocabulary size**: the full OHDSI vocabulary download is large (several GB uncompressed) and the `CONCEPT` table load is usually the slowest step — budget time for it. Part B1 avoids this entirely; its bundled 33,207-concept subset already covers Synthea's codes.
-- **Mapping gaps**: Synthea's synthetic conditions/procedures don't always map cleanly to standard concepts for highly granular domains (e.g., precise anatomical site). Expect to spot-check condition_occurrence and procedure_occurrence after loading.
+- **CDM version**: `ETLSyntheaBuilder` currently targets CDM v5.3/5.4 depending on the release, pin the package version if you need exact compatibility with a downstream tool like ATLAS.
+- **Vocabulary size**: the full OHDSI vocabulary download is large (several GB uncompressed) and the `CONCEPT` table load is usually the slowest step, budget time for it.
+Part B1 avoids this entirely; its bundled 33,207-concept subset already covers Synthea's codes.
+- **Mapping gaps**: Synthea's synthetic conditions/procedures don't always map cleanly to standard concepts for highly granular domains (e.g., precise anatomical site).
+Expect to spot-check condition_occurrence and procedure_occurrence after loading.
 - **Scale**: for populations beyond ~50–100k patients, the R-based ETL can get slow; at that scale, consider the newer SQL/Spark-based ETL pipelines from the OHDSI community instead of ETLSyntheaBuilder.
 - **Reproducibility**: always pass `-s <seed>` to Synthea if you need to regenerate the same population later for comparison.

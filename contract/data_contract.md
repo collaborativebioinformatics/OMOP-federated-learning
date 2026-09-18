@@ -4,7 +4,9 @@ Version: 2026-09-17 (revision 2, based on the first raw Synthea extract)
 
 ## 1. The contract fixes the handover for the prototype
 
-Subgroup 1 delivers four OMOP tables as CSV files, and Subgroup 2 builds the NVFlare dataloader against the columns and concept IDs in this contract. The first raw extract contains only patients with type 2 diabetes, so the prototype now fits a linear regression that predicts HbA1c from age, sex, body mass index and systolic blood pressure. Both subgroups must agree before anyone changes the contract.
+Subgroup 1 delivers four OMOP tables as CSV files, and Subgroup 2 builds the NVFlare dataloader against the columns and concept IDs in this contract.
+The first raw extract contains only patients with type 2 diabetes, so the prototype now fits a linear regression that predicts HbA1c from age, sex, body mass index and systolic blood pressure.
+Both subgroups must agree before anyone changes the contract.
 
 ## 2. Both subgroups use the same fixed versions
 
@@ -29,15 +31,19 @@ The team profiled the three raw files on 2026-09-17 and found the following cont
 
 The extract has three consequences for the contract:
 
-- Every patient has type 2 diabetes, so a diabetes label would equal 1 for everyone. The contract therefore uses HbA1c as the outcome and uses the diagnosis to define the cohort.
+- Every patient has type 2 diabetes, so a diabetes label would equal 1 for everyone.
+The contract therefore uses HbA1c as the outcome and uses the diagnosis to define the cohort.
 - The extract lacks `encounters.csv`, so the prototype ETL derives the observation period from the observation and condition dates.
-- ETL-Synthea reads the complete Synthea CSV output, including encounters. The team must therefore run ETL-Synthea on the full, unfiltered output of the same Synthea run and filter the reference tables afterwards.
+- ETL-Synthea reads the complete Synthea CSV output, including encounters.
+The team must therefore run ETL-Synthea on the full, unfiltered output of the same Synthea run and filter the reference tables afterwards.
 
-The prototype uses one Synthea run and splits the converted persons into three sites. The split script assigns each person to site_a, site_b or site_c by the remainder of `person_id` divided by 3.
+The prototype uses one Synthea run and splits the converted persons into three sites.
+The split script assigns each person to site_a, site_b or site_c by the remainder of `person_id` divided by 3.
 
 ## 4. Subgroup 1 hands over one folder per site
 
-The prototype ETL converts the whole run into `omop/all/`, the validation compares `omop/all/` with `reference/all/`, and the split script then writes the site folders. Subgroup 2 points each NVFlare client at one site folder.
+The prototype ETL converts the whole run into `omop/all/`, the validation compares `omop/all/` with `reference/all/`, and the split script then writes the site folders.
+Subgroup 2 points each NVFlare client at one site folder.
 
 ```
 raw/run_01/csv/          Synthea output, including the files the prototype ignores
@@ -62,7 +68,8 @@ Every CSV file follows five rules:
 
 ## 5. The ETL fills four tables and 25 columns
 
-The ETL assigns every `_id` key as a sequential integer that starts at 1. The ETL writes one `person` row for every row in `patients.csv`.
+The ETL assigns every `_id` key as a sequential integer that starts at 1.
+The ETL writes one `person` row for every row in `patients.csv`.
 
 | Column | Type | Synthea source | Rule |
 | --- | --- | --- | --- |
@@ -107,7 +114,8 @@ The ETL writes one `condition_occurrence` row for every row in `conditions.csv` 
 | condition_type_concept_id | integer | none | The ETL writes 32817. |
 | condition_source_value | text | conditions.CODE | The ETL copies the SNOMED code. |
 
-The ETL ignores all other raw columns and codes. The prototype leaves out the death dates, the other laboratory results (glucose, creatinine and eGFR) and all personal identifiers such as names, addresses and social security numbers.
+The ETL ignores all other raw columns and codes.
+The prototype leaves out the death dates, the other laboratory results (glucose, creatinine and eGFR) and all personal identifiers such as names, addresses and social security numbers.
 
 ## 6. The prototype uses 16 concept IDs
 
@@ -147,7 +155,9 @@ The dataloader of Subgroup 2 reads only the four OMOP files of its site and prod
 | sbp | The dataloader takes the earliest systolic blood pressure value. |
 | hba1c | The dataloader takes the earliest HbA1c value as the regression target. |
 
-The dataloader keeps only persons with a `condition_occurrence` row for concept 201826 and at least one value for each measurement. All 98 persons in the first extract meet both conditions, and 91 persons have all three earliest values on the same date. The first HbA1c values range from 6.0% to 9.1%, so the target varies little, which the prototype accepts because the README does not require accuracy.
+The dataloader keeps only persons with a `condition_occurrence` row for concept 201826 and at least one value for each measurement.
+All 98 persons in the first extract meet both conditions, and 91 persons have all three earliest values on the same date.
+The first HbA1c values range from 6.0% to 9.1%, so the target varies little, which the prototype accepts because the README does not require accuracy.
 
 ## 8. A site passes when all checks succeed
 
@@ -158,7 +168,8 @@ The validation script runs four structural checks on `omop/all/` and on each sit
 3. The script confirms that every concept column contains only the values of section 6.
 4. The script confirms that HbA1c lies between 3 and 20, body mass index between 10 and 80 and systolic blood pressure between 60 and 250.
 
-The script then compares `omop/all/` with `reference/all/`. The two ETLs number their keys differently, so the script joins persons on `person_source_value` and filters the reference tables to the persons of the extract and the concepts of section 6.
+The script then compares `omop/all/` with `reference/all/`.
+The two ETLs number their keys differently, so the script joins persons on `person_source_value` and filters the reference tables to the persons of the extract and the concepts of section 6.
 
 | Table | Compared values |
 | --- | --- |
@@ -166,4 +177,5 @@ The script then compares `omop/all/` with `reference/all/`. The two ETLs number 
 | measurement | The script compares the row count per person and concept, and the values on each date within 0.01. |
 | condition_occurrence | The script compares the set of persons with concept 201826 and their start dates. |
 
-The script leaves `observation_period`, the type concept columns and all `_id` keys out of the comparison, because ETL-Synthea derives those values from encounters and its own rules. The team documents every remaining difference and decides whether the prototype ETL or the reference causes the difference.
+The script leaves `observation_period`, the type concept columns and all `_id` keys out of the comparison, because ETL-Synthea derives those values from encounters and its own rules.
+The team documents every remaining difference and decides whether the prototype ETL or the reference causes the difference.
