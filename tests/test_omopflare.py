@@ -237,3 +237,24 @@ def test_events_outside_the_observation_period_are_clipped(tmp_path, spec):
     ids, values = of.design_matrix(site, spec, index)
     assert ids.tolist() == [1]
     assert values[0][0] == 25.0
+
+
+def test_leakage_report_catches_missingness_that_decides_the_label(tmp_path, spec):
+    # Everyone measured survives, everyone unmeasured does not: the presence indicator is the label.
+    (tmp_path / "person.csv").write_text("person_id,year_of_birth\n" + "".join(f"{i},1970\n" for i in range(1, 9)))
+    measured = "".join(f"{i},3038553,2020-06-01,25.0,9531\n" for i in range(1, 5))
+    (tmp_path / "measurement.csv").write_text(
+        "person_id,measurement_concept_id,measurement_date,value_as_number,unit_concept_id\n" + measured
+    )
+    site = of.OmopSource(tmp_path)
+    index = pa.table(
+        {
+            "person_id": pa.array(range(1, 9), pa.int64()),
+            "index_date": pa.array(["2021-01-01"] * 8).cast(pa.date32()),
+            "label": pa.array([0.0] * 4 + [1.0] * 4),
+        }
+    )
+    leaks, findings = of.leakage_report(site, spec, index)
+    assert leaks[0].prevalence_observed == 0.0
+    assert leaks[0].prevalence_missing == 1.0
+    assert any(f.check == "missingness_separates" and f.level == "error" for f in findings)
