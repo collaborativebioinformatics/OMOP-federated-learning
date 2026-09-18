@@ -73,13 +73,10 @@ The decisions made by the teams allowed them to create a very simple working pro
 Initially, the federated analysis prototype relied on using a server and clients that were run locally
 on the team members' laptops. We wanted to evolve the prototype such that at least one client would
 operate within a Trusted Research Environment (TRE). We chose to use data created by the HUNT Study 
-Cloud.
+Cloud. This provider has set up a temporary part of their environment to help the Hackathon.
 
-Although the HUNT data sets we wanted to use were synthetic, the HUNT Study Cloud currently maintains a
-policy that no data can leave its environment. Therefore, we needed to create a client that
-ran within the HUNT Study Cloud. This presents an interesting governance issue, about the ease with 
-which synthetic data that is based on cohort records can be exported from a TRE. It would be interesting
-to know whether the restriction owes to data protection or IP concerns.
+The HUNT data sets we wanted to use were synthetic. But in the spirit of the Hackathon trying to represent
+a real TRE activity, we set up a NFLARE client that ran within the HUNT Study Cloud. 
 
 We were required to submit an application for temporary access. It requires applicants to provide their
 names and institutions. The application also required a PI to be specified. Fortunately, the PI for 
