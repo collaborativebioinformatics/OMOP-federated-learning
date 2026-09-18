@@ -134,65 +134,54 @@ def funnel(axis: plt.Axes, stages: dict[str, int]) -> None:
     axis.set_title("Who is left to train on", fontsize=10)
 
 
-def imbalance(axis: plt.Axes, edata: EHRData) -> None:
-    """Show how unevenly the people and the cases are spread over the sites.
+def case_rate(axis: plt.Axes, edata: EHRData) -> None:
+    """Plot each site's case rate against the pooled rate.
 
     Args:
         axis: Axes to draw on.
         edata: The stacked cohort.
     """
     grouped = edata.obs.groupby("site", observed=True)["label"]
-    sizes, rates = grouped.size(), grouped.mean() * 100
-    axis.bar(range(len(sizes)), sizes, color=SITE)
-    axis.set_ylabel("people", color=MUTED, fontsize=9)
-    axis.set_xticks(range(len(sizes)))
-    axis.set_xticklabels([name.replace("centre_", "") for name in sizes.index], rotation=45, ha="right", fontsize=7)
-    twin = axis.twinx()
-    twin.plot(range(len(rates)), rates, "o-", color=CASE, markersize=4, linewidth=1.2)
-    twin.set_ylabel("incident cases (%)", color=CASE, fontsize=9)
-    twin.set_ylim(bottom=0)
-    spread = rates.max() / max(rates.min(), 1e-9)
-    axis.set_title(f"Case rate varies {spread:.1f}-fold across sites", fontsize=10)
+    rates, sizes = grouped.mean() * 100, grouped.size()
+    pooled = float(edata.obs["label"].mean()) * 100
+    positions = np.arange(len(rates))
+    axis.hlines(positions, pooled, rates, color=SITE, linewidth=1)
+    axis.scatter(rates, positions, s=np.sqrt(sizes) * 2.5, color=CASE, zorder=3)
+    axis.axvline(pooled, color=MUTED, linewidth=1)
+    axis.text(pooled, -0.75, f" pooled {pooled:.2f}%", fontsize=7, color=MUTED, va="bottom")
+    axis.set_yticks(positions)
+    axis.set_yticklabels([name.replace("centre_", "") for name in rates.index], fontsize=7)
+    axis.set_ylim(len(rates) - 0.5, -1.0)
+    axis.set_xlabel("incident cases (%)", fontsize=9)
+    axis.set_xlim(0, max(rates.max() * 1.25, pooled * 2))
+    axis.set_title("Case rate by site", fontsize=10)
 
 
-def by_site(axis: plt.Axes, edata: EHRData, feature: str) -> None:
-    """Compare one feature's distribution between sites.
-
-    Args:
-        axis: Axes to draw on.
-        edata: The stacked cohort.
-        feature: Feature to compare.
-    """
-    values = edata[:, feature].X.ravel()
-    sites = edata.obs["site"].cat.categories
-    axis.boxplot(
-        [values[(edata.obs["site"] == site).to_numpy() & ~np.isnan(values)] for site in sites],
-        tick_labels=[site.replace("centre_", "") for site in sites],
-        showfliers=False,
-    )
-    axis.set_ylabel(feature, fontsize=9)
-    axis.tick_params(axis="x", rotation=45, labelsize=7)
-    medians = [np.nanmedian(values[(edata.obs["site"] == site).to_numpy()]) for site in sites]
-    axis.set_title(f"{feature} by site, medians span {max(medians) - min(medians):.2f}", fontsize=10)
-
-
-def drift(axis: plt.Axes, differences: pd.DataFrame) -> None:
-    """Show each site's distance from the pooled cohort, feature by feature.
+def divergence(axis: plt.Axes, differences: pd.DataFrame, *, band: float = 0.1) -> None:
+    """Plot how far each site's feature means sit from the pooled mean.
 
     Args:
         axis: Axes to draw on.
         differences: Sites by features, in pooled standard deviations.
+        band: Half-width of the region where sites are treated as indistinguishable.
     """
-    extreme = float(np.nanmax(np.abs(differences.to_numpy()))) or 1.0
-    axis.imshow(differences.to_numpy(), cmap=DIVERGING, aspect="auto", vmin=-extreme, vmax=extreme)
-    axis.set_xticks(range(differences.shape[1]))
-    axis.set_xticklabels(differences.columns, rotation=30, ha="right", fontsize=7)
-    axis.set_yticks(range(differences.shape[0]))
-    axis.set_yticklabels([name.replace("centre_", "") for name in differences.index], fontsize=7)
-    for row in range(differences.shape[0]):
-        for column in range(differences.shape[1]):
-            axis.text(column, row, f"{differences.to_numpy()[row, column]:+.2f}", ha="center", va="center", fontsize=6)
-    axis.set_title(f"Site minus pooled mean, worst {extreme:.2f} SD", fontsize=10)
+    features = list(differences.columns)
+    axis.axvline(0.0, color=MUTED, linewidth=1)
+    for edge in (-band, band):
+        axis.axvline(edge, color=MUTED, linewidth=0.8, linestyle=":")
+    for position, feature in enumerate(features):
+        values = differences[feature].to_numpy()
+        axis.scatter(values, np.full(values.size, position), s=28, color=SITE, edgecolor="white", linewidth=0.5)
+    reach = float(np.nanmax(np.abs(differences.to_numpy())))
+    axis.set_yticks(range(len(features)))
+    axis.set_yticklabels(features, fontsize=8)
+    axis.set_ylim(-0.6, len(features) - 0.4)
+    axis.set_xlim(-max(reach * 1.3, band * 2), max(reach * 1.3, band * 2))
+    axis.set_xlabel("site mean minus pooled mean (SD)", fontsize=9)
+    axis.text(
+        0.98, 0.06, f"furthest site {reach:.2f} SD", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED
+    )
+    axis.set_title("How far the sites sit apart", fontsize=10)
 
 
 def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> None:
@@ -214,7 +203,8 @@ def plausibility(axis: plt.Axes, values: np.ndarray, feature: of.Feature) -> Non
     axis.set_xlabel(f"{feature.name}, as recorded", fontsize=9)
     axis.set_ylabel("readings (log scale)", fontsize=9)
     kept = float(((positive >= low) & (positive <= high)).mean())
-    axis.set_title(f"{feature.name} reaches {positive.max():,.0f}, the range keeps {kept:.0%}", fontsize=10)
+    axis.text(0.98, 0.92, f"the range keeps {kept:.0%}", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED)
+    axis.set_title(f"{feature.name} against the plausible range", fontsize=10)
 
 
 def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
@@ -228,7 +218,7 @@ def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
     values = edata[:, feature].X.ravel()
     case = (edata.obs["case"] == "case").to_numpy()
     observed = ~np.isnan(values)
-    bins = np.linspace(np.nanmin(values), np.nanmax(values), 50)
+    bins = np.linspace(np.nanmin(values), np.nanmax(values), 30)
     axis.hist(
         values[observed & ~case], bins=bins, density=True, color=SITE, label=f"control ({(observed & ~case).sum():,})"
     )
@@ -244,9 +234,9 @@ def separation(axis: plt.Axes, edata: EHRData, feature: str) -> None:
     axis.set_xlabel(feature, fontsize=9)
     axis.set_ylabel("density", fontsize=9)
     axis.legend(fontsize=7, frameon=False)
-    difference = float(np.nanmean(values[case]) - np.nanmean(values[~case]))
-    pooled = float(np.nanstd(values))
-    axis.set_title(f"{feature}, cases minus controls {difference / pooled:+.2f} SD", fontsize=10)
+    difference = float(np.nanmean(values[case]) - np.nanmean(values[~case])) / float(np.nanstd(values))
+    axis.text(0.98, 0.72, f"cases {difference:+.2f} SD", transform=axis.transAxes, ha="right", fontsize=7, color=MUTED)
+    axis.set_title(f"{feature}, cases and controls", fontsize=10)
 
 
 def main() -> None:
@@ -265,13 +255,13 @@ def main() -> None:
     print(differences.round(3).to_string())
 
     first, second = spec.features[0], spec.features[1]
-    figure, axes = plt.subplots(2, 3, figsize=(16, 8.4))
+    figure, axes = plt.subplots(2, 3, figsize=(16, 8.0))
     funnel(axes[0, 0], stages)
-    imbalance(axes[0, 1], edata)
-    drift(axes[0, 2], differences)
-    by_site(axes[1, 0], edata, first.name)
-    plausibility(axes[1, 1], raw_values(paths, second), second)
-    separation(axes[1, 2], edata, first.name)
+    case_rate(axes[0, 1], edata)
+    divergence(axes[0, 2], differences)
+    plausibility(axes[1, 0], raw_values(paths, second), second)
+    separation(axes[1, 1], edata, first.name)
+    separation(axes[1, 2], edata, second.name)
     for axis in axes.ravel():
         axis.spines[["top", "right"]].set_visible(False)
     figure.suptitle(args.title, fontsize=12)
