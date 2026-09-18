@@ -4,7 +4,7 @@ UK Biobank's synthetic extract goes in, OMOP comes out, NVFlare trains an incide
 
 ```bash
 python ../../omop_skill/review/ukb/sample_ukb_fields.py --rows 100000 \
-  --output ../../omop_skill/review/ukb/data/ukb_sampled   # raw UKB, ~2.7 GB
+  --output data/ukb_sampled   # raw UKB, ~2.7 GB
 python prepare.py        # one raw folder per assessment centre
 python to_omop.py        # raw -> OMOP, via the omop-etl skill
 python explore.py        # what the source holds
