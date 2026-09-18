@@ -113,3 +113,12 @@ which provided much better performance than had the transformation code relied o
 
 For the data processing it used DuckDB which increased the computing speed a lot more than it would have
 with postgress.
+
+# A review of data sets 
+For the final prototype, we used a synthetic data set from UK Biobank. We have established two ways of doing OMOP mapping using
+LLMs. One is fully automated and completely reliant on the model. The other way relies on a set of rules that are orchestrated by the LLM.
+In both cases, you can evaluate data quality through LLM. This second way also seeks approval from the user about mappings that may seem
+ambiguous.
+
+
+
