@@ -20,16 +20,26 @@ Aggregate = Literal["last", "mean", "max", "count"]
 
 
 def _feature_table(spec: FeatureSpec) -> pa.Table:
+    rows = []
+    for position, feature in enumerate(spec.features):
+        pinned = (feature.unit_concept_id, 1.0, 0.0)
+        units = [pinned, *feature.conversions] if feature.is_numeric else [(None, 1.0, 0.0)]
+        low, high = feature.plausible_range if feature.plausible_range else (None, None)
+        rows += [
+            (position, feature.concept_id, feature.domain, unit, scale, offset, low, high)
+            for unit, scale, offset in units
+        ]
+    columns = list(zip(*rows, strict=True))
     return pa.table(
         {
-            "position": pa.array(range(len(spec.features)), pa.int32()),
-            "concept_id": pa.array([f.concept_id for f in spec.features], pa.int64()),
-            "domain": pa.array([f.domain for f in spec.features]),
-            "unit_concept_id": pa.array([f.unit_concept_id for f in spec.features], pa.int64()),
-            "low": pa.array([f.plausible_range[0] if f.plausible_range else None for f in spec.features], pa.float64()),
-            "high": pa.array(
-                [f.plausible_range[1] if f.plausible_range else None for f in spec.features], pa.float64()
-            ),
+            "position": pa.array(columns[0], pa.int32()),
+            "concept_id": pa.array(columns[1], pa.int64()),
+            "domain": pa.array(columns[2]),
+            "unit_concept_id": pa.array(columns[3], pa.int64()),
+            "scale": pa.array(columns[4], pa.float64()),
+            "offset": pa.array(columns[5], pa.float64()),
+            "low": pa.array(columns[6], pa.float64()),
+            "high": pa.array(columns[7], pa.float64()),
         }
     )
 
@@ -37,7 +47,7 @@ def _feature_table(spec: FeatureSpec) -> pa.Table:
 def _domain_query(domain: str, spec: FeatureSpec, bins: int, aggregate: Aggregate) -> str:
     date = DATE_COLUMN[domain]  # type: ignore[index]
     value_column = VALUE_COLUMN[domain]  # type: ignore[index]
-    value = f"try_cast(e.{value_column} as double)" if value_column else "1.0"
+    value = f"(try_cast(e.{value_column} as double) * f.scale + f.offset)" if value_column else "1.0"
     unit_guard = "and (f.unit_concept_id is null or e.unit_concept_id = f.unit_concept_id)" if value_column else ""
     range_guard = f"and (f.low is null or {value} between f.low and f.high)" if value_column else ""
     reducer = {

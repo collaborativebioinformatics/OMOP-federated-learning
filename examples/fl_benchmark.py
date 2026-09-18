@@ -53,7 +53,7 @@ def cohort(source: of.OmopSource) -> tuple[np.ndarray, np.ndarray, of.FeatureSpe
         source: The CDM to read.
 
     Returns:
-        The design matrix, the labels and the spec used.
+        The feature matrix, the labels and the spec used.
     """
     common = f"""
         select condition_concept_id from condition_occurrence
@@ -86,7 +86,7 @@ def cohort(source: of.OmopSource) -> tuple[np.ndarray, np.ndarray, of.FeatureSpe
         )
         group by p.person_id, p.year_of_birth
     """
-    ids, X = of.design_matrix(source, spec, index)
+    ids, X = of.feature_matrix(source, spec, index)
     table = source.sql(index).arrow().read_all()
     meta = dict(
         zip(

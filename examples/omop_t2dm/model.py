@@ -8,7 +8,7 @@ from torch import nn
 
 
 class RiskMLP(nn.Module):
-    """A small classifier over an omopflare design matrix.
+    """A small classifier over an omopflare feature matrix.
 
     Args:
         n_features: Design matrix width, from ``spec.width``.

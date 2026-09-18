@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .features import Index, as_table, design_matrix
+from .features import Index, as_table, feature_matrix
 from .source import OmopSource
 from .spec import FeatureSpec
 from .validate import Finding
@@ -82,7 +82,7 @@ def leakage_report(
     if "label" not in table.column_names:
         raise ValueError("leakage_report needs a label column in the index")
 
-    ids, matrix = design_matrix(source, spec, table)
+    ids, matrix = feature_matrix(source, spec, table)
     labels = dict(zip(table.column("person_id").to_pylist(), table.column("label").to_pylist(), strict=True))
     y = np.array([labels[int(person)] for person in ids], dtype=np.float64)
 

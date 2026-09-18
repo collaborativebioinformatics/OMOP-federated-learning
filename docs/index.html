@@ -130,7 +130,7 @@
       <svg id="scale" viewBox="0 0 440 250" width="100%" height="250" role="img"></svg>
       <div class="legend">
         <span><i class="swatch" style="background:var(--blue)"></i>duckdb scan</span>
-        <span><i class="swatch" style="background:var(--violet)"></i>design matrix</span>
+        <span><i class="swatch" style="background:var(--violet)"></i>feature matrix</span>
         <span><i class="swatch" style="background:var(--green)"></i>training epoch</span>
       </div>
     </figure>
@@ -258,8 +258,8 @@ const GROUPS = {
      "FedAvg averages weight tensors, so every site must emit identical columns in identical order. Sites never discover their own features; one missing a concept contributes an all-missing column."],
     ["Spec by negotiation",
      "Each site reports suppressed per-concept patient counts, and the agreed spec is the intersection. Hand-writing it left cohort_2 carrying two dead all-missing columns."],
-    ["Units are pinned",
-     "Glucose in mg/dL and mmol/L differ eighteenfold. Rows in any other unit are dropped, never converted silently."],
+    ["Units are declared",
+     "Glucose in mg/dL and mmol/L differ eighteenfold. The spec pins one unit and carries the factors for the others; anything undeclared is dropped rather than guessed."],
     ["Landmarking is structural",
      "Only events strictly before the index date, inside the lookback, inside the patient's observation period. A value recorded on the landmark itself cannot leak in."],
     ["Missingness is checked",
@@ -310,7 +310,7 @@ $("#bugs").innerHTML = "<tr><th>Symptom</th><th>Cause</th><th>Found on</th></tr>
 /* ---------- stats ---------- */
 const STATS = [
   ["3.39B", "measurement rows in one site, 15 GB parquet"],
-  ["7.9s", "to scan them; 7.7s to build the design matrix"],
+  ["7.9s", "to scan them; 7.7s to build the feature matrix"],
   ["6.2 GB", "peak memory at 1M patients"],
   ["4.7x", "faster epochs after batch indexing"],
   ["8.4s", "per FedAvg round across 3 clients at 1M patients"],
@@ -397,7 +397,7 @@ function drawScale() {
       r.style.cursor = "crosshair";
       r.onmousemove = e => showTip(e,
         `<b>${d.people} patients</b>, ${d.rows} rows<br>
-         scan ${d.scan}s<br>design matrix ${d.build}s<br>epoch ${d.epoch}s<br>peak ${d.gb} GB`);
+         scan ${d.scan}s<br>feature matrix ${d.build}s<br>epoch ${d.epoch}s<br>peak ${d.gb} GB`);
       r.onmouseleave = hideTip;
     });
     mk(svg, "text", {x:L + i*band + band/2, y:H-19, "text-anchor":"middle",

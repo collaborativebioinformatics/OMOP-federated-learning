@@ -32,7 +32,7 @@ def cohort(cdm: Path, spec: of.FeatureSpec, site: int, sites: int):
         group by person_id
     """
     start = time.perf_counter()
-    ids, matrix = of.design_matrix(source, spec, index)
+    ids, matrix = of.feature_matrix(source, spec, index)
     scaler = of.SiteStats.from_matrix(matrix)
     features = np.nan_to_num(of.standardize(matrix, scaler))
     elapsed = time.perf_counter() - start

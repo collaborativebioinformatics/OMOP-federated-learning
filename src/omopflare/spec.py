@@ -30,14 +30,16 @@ DATE_COLUMN: dict[Domain, str] = {
 
 @dataclass(frozen=True, slots=True)
 class Feature:
-    """One column of the design matrix.
+    """One column of the feature matrix.
 
     Attributes:
         name: Column name.
         concept_id: Standard concept the feature reads.
         domain: OMOP table the concept lives in.
-        unit_concept_id: Required for numeric domains; rows in other units are dropped.
-        plausible_range: Bounds on the value, keyed on concept and unit together.
+        unit_concept_id: The unit every value is expressed in after conversion.
+        plausible_range: Bounds checked after conversion.
+        conversions: ``(unit_concept_id, scale, offset)`` triples; a value in that unit becomes
+            ``value * scale + offset``. Undeclared units are dropped.
     """
 
     name: str
@@ -45,12 +47,15 @@ class Feature:
     domain: Domain = "measurement"
     unit_concept_id: int | None = None
     plausible_range: tuple[float, float] | None = None
+    conversions: tuple[tuple[int, float, float], ...] = ()
 
     def __post_init__(self) -> None:
         if self.concept_id <= 0:
             raise ValueError(f"{self.name}: concept_id must be a positive standard concept, got {self.concept_id}")
         if VALUE_COLUMN[self.domain] is not None and self.unit_concept_id is None:
             raise ValueError(f"{self.name}: {self.domain} features need a unit_concept_id")
+        if any(unit == self.unit_concept_id for unit, _, _ in self.conversions):
+            raise ValueError(f"{self.name}: a conversion is given for the pinned unit {self.unit_concept_id}")
 
     @property
     def is_numeric(self) -> bool:
@@ -115,6 +120,7 @@ class FeatureSpec:
                     "domain": f.domain,
                     "unit_concept_id": f.unit_concept_id,
                     "plausible_range": list(f.plausible_range) if f.plausible_range else None,
+                    "conversions": [list(c) for c in f.conversions],
                 }
                 for f in self.features
             ],
@@ -131,6 +137,7 @@ class FeatureSpec:
                 domain=f["domain"],
                 unit_concept_id=f["unit_concept_id"],
                 plausible_range=tuple(f["plausible_range"]) if f["plausible_range"] else None,
+                conversions=tuple(tuple(c) for c in f.get("conversions", ())),
             )
             for f in payload["features"]
         )

@@ -8,7 +8,7 @@ import torch
 from scipy.sparse import csr_matrix
 from torch.utils.data import BatchSampler, DataLoader, Dataset, IterableDataset, RandomSampler, SequentialSampler
 
-from .features import Index, Layout, as_table, design_query, extract, to_matrix
+from .features import Index, Layout, as_table, extract, feature_query, to_matrix
 from .source import OmopSource
 from .spec import FeatureSpec
 from .stats import SiteStats, standardize
@@ -25,12 +25,12 @@ def _to_csr(matrix: sparse.SparseArray) -> csr_matrix:
 class CohortDataset(Dataset):
     """An in-memory cohort, for sites small enough to hold one.
 
-    A sparse design matrix is kept sparse and densified one batch at a time, so a wide bag-of-codes spec costs
+    A sparse feature matrix is kept sparse and densified one batch at a time, so a wide bag-of-codes spec costs
     its stored values rather than rows times features.
     Indexing takes a batch of positions, which is what :func:`dataloader` supplies.
 
     Args:
-        features: The design matrix, dense or sparse.
+        features: The feature matrix, dense or sparse.
         labels: One label per row.
         person_ids: Optional person IDs, kept so predictions can be joined back.
 
@@ -124,7 +124,7 @@ def site_statistics(
     *,
     batch_size: int = 50_000,
 ) -> SiteStats:
-    """Summarise a site with SQL aggregates, without building the design matrix.
+    """Summarise a site with SQL aggregates, without building the feature matrix.
 
     Args:
         source: The site to read from.
@@ -135,7 +135,7 @@ def site_statistics(
     Returns:
         Count, sum and sum of squares per column, safe to send to the server.
     """
-    inner = design_query(source, spec, index)
+    inner = feature_query(source, spec, index)
     aggregates = []
     for position in range(len(spec.features)):
         alias = f"f{position}"

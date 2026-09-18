@@ -114,7 +114,7 @@ def stages(directory: Path) -> dict[str, float]:
     scan = time.perf_counter() - start
 
     start = time.perf_counter()
-    ids, matrix = of.design_matrix(source, SPEC, index)
+    ids, matrix = of.feature_matrix(source, SPEC, index)
     build = time.perf_counter() - start
 
     labels = (np.random.default_rng(0).random(len(ids)) < 0.15).astype(np.float64)

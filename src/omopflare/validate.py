@@ -132,22 +132,26 @@ def _check_units(source: OmopSource, spec: FeatureSpec) -> list[Finding]:
         present = {int(row[0]) if row[0] is not None else None: int(row[1]) for row in rows}
         if not present:
             continue
-        matching = present.get(feature.unit_concept_id, 0)
-        other = sum(count for unit, count in present.items() if unit != feature.unit_concept_id)
-        if matching == 0:
+        known = {feature.unit_concept_id, *(unit for unit, _, _ in feature.conversions)}
+        usable = sum(count for unit, count in present.items() if unit in known)
+        unknown = {unit: count for unit, count in present.items() if unit not in known}
+        if usable == 0:
             findings.append(
                 Finding(
                     "error",
                     "units",
-                    f"{feature.name}: no rows in unit {feature.unit_concept_id}, found {sorted(present)}",
+                    f"{feature.name}: no rows in unit {feature.unit_concept_id} or a declared conversion, "
+                    f"found {sorted(present)}",
                 )
             )
-        elif other > matching:
+        elif unknown:
+            worst = sorted(unknown.items(), key=lambda item: -item[1])
             findings.append(
                 Finding(
                     "warning",
                     "units",
-                    f"{feature.name}: {other} rows in other units vs {matching} matching, and they are dropped",
+                    f"{feature.name}: {sum(unknown.values())} of {usable + sum(unknown.values())} rows are dropped "
+                    f"for want of a conversion, units {[unit for unit, _ in worst]}",
                 )
             )
     return findings
