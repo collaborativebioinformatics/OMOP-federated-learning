@@ -1,4 +1,6 @@
-# Project 5: Everything OMOP
+# Concordia
+
+*Project 5 “Everything OMOP”, collaborativebioinformatics hackathon, Copenhagen 2026*
 
 **ETL pipeline and federated learning framework for OMOP Common Data Model data.**
 
