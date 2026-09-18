@@ -1,5 +1,7 @@
 #-------------Optional instructions to create OMOP style data from Synthea-----------------#
 
+> **Tested route (2026-09-18):** use the Synthea 3.3.0 release jar, a build from master writes CSV files ETL-Synthea cannot read. The reference conversion that ran end to end is OHDSI ETL-Synthea on DuckDB in [`omop_skill/reference/`](../omop_skill/reference/README.md). dbt-synthea (Part B1) supports only Synthea 3.0.0.
+
 # End-to-End Workflow: Synthea → OMOP CDM
 
 This guide covers two connected stages:

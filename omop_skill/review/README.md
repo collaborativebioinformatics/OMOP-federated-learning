@@ -28,23 +28,23 @@ Codex, Claude Code, or another coding assistant with access to this repository c
 From the repository root, first generate a synthetic UKB input using the bundled [download and processing scripts](ukb/README.md), or set `UKB_TSV` to an existing tab-separated extract with `EID` and the fields declared in `specs/ukb_pilot_v1.json`. **No UKB data is committed to this folder.** The script sequence below downloads the first 10,000 records per official synthetic field-group file and creates an E11-focused subset locally. Set `ATHENA_DIR` to a local Athena vocabulary directory containing tab-separated `CONCEPT.csv`, `CONCEPT_RELATIONSHIP.csv`, and `VOCABULARY.csv` from one release, including ICD10. Athena vocabularies are not bundled. Python 3.9 or newer is required. Choose a fresh run directory each time.
 
 ```bash
-python3 ukb_omop_agent/ukb/sample_ukb_fields.py \
-  --rows 10000 --output ukb_omop_agent/ukb/data/ukb_sampled
-python3 ukb_omop_agent/ukb/make_ukb_subset.py \
-  --input ukb_omop_agent/ukb/data/ukb_sampled \
-  --output ukb_omop_agent/ukb/data/ukb_e11_pilot --all-e11
+python3 omop_skill/review/ukb/sample_ukb_fields.py \
+  --rows 10000 --output omop_skill/review/ukb/data/ukb_sampled
+python3 omop_skill/review/ukb/make_ukb_subset.py \
+  --input omop_skill/review/ukb/data/ukb_sampled \
+  --output omop_skill/review/ukb/data/ukb_e11_pilot --all-e11
 ```
 
 These are **source-preparation steps, not OMOP mapping**. The first command saves the first 10,000 rows from each relevant UKB synthetic field-group file in `ukb_sampled/` and checks that the EIDs line up. The second command scans that sample for participants with at least one diagnosis code beginning `E11` and writes **all** such participants to `ukb_subset.tsv`; `--all-e11` does not impose a limit of 20 or 200 people. Their selected fields, including other diagnosis codes, stay in the TSV. Only the later `--diagnosis-prefix E11` option on `general_agent.py` limits which diagnosis events are inspected and mapped. For example, the source code `E119` (E11.9) is part of the E11 family and gets its own review row. Neither preparation command assigns an OMOP concept.
 
 ```bash
-export UKB_TSV=ukb_omop_agent/ukb/data/ukb_e11_pilot/ukb_subset.tsv
+export UKB_TSV=omop_skill/review/ukb/data/ukb_e11_pilot/ukb_subset.tsv
 export ATHENA_DIR=/path/to/athena_vocabulary
-export RUN_DIR=ukb_omop_agent/output/my_e11_run
+export RUN_DIR=omop_skill/review/output/my_e11_run
 
-python3 ukb_omop_agent/general_agent.py inspect \
+python3 omop_skill/review/general_agent.py inspect \
   --input "$UKB_TSV" \
-  --spec ukb_omop_agent/specs/ukb_pilot_v1.json \
+  --spec omop_skill/review/specs/ukb_pilot_v1.json \
   --vocabulary "$ATHENA_DIR" \
   --diagnosis-prefix E11 \
   --output "$RUN_DIR"
@@ -53,17 +53,17 @@ python3 ukb_omop_agent/general_agent.py inspect \
 `mapping_review.csv` has one row per source field, vocabulary, and code. The `candidate_targets_json` column lists valid standard targets with their OMOP domains; `candidate_value_ids` lists valid `Maps to value` targets. Inspection **does not approve** anything. Review each mapping, then set `decision=approved`, `approved_target_ids` to one or more semicolon-separated IDs, `mapping_kind=vocabulary_maps_to` or `local_reviewed`, and provide `evidence`. For an Observation or Measurement mapping that needs `Maps to value`, set `approved_value_concept_id` as well. Leave other rows as `needs_review` or `unmapped`. Use a new output directory for each inspection so the review file is not overwritten.
 
 ```bash
-python3 ukb_omop_agent/general_agent.py apply \
+python3 omop_skill/review/general_agent.py apply \
   --input "$UKB_TSV" \
-  --spec ukb_omop_agent/specs/ukb_pilot_v1.json \
+  --spec omop_skill/review/specs/ukb_pilot_v1.json \
   --vocabulary "$ATHENA_DIR" \
   --diagnosis-prefix E11 \
   --review "$RUN_DIR/mapping_review.csv" \
   --output "$RUN_DIR/omop"
 
-python3 ukb_omop_agent/general_agent.py qc \
+python3 omop_skill/review/general_agent.py qc \
   --input "$UKB_TSV" \
-  --spec ukb_omop_agent/specs/ukb_pilot_v1.json \
+  --spec omop_skill/review/specs/ukb_pilot_v1.json \
   --vocabulary "$ATHENA_DIR" \
   --diagnosis-prefix E11 \
   --review "$RUN_DIR/mapping_review.csv" \
@@ -73,8 +73,8 @@ python3 ukb_omop_agent/general_agent.py qc \
 For graphical QC, install the optional plotting dependency in your Python environment:
 
 ```bash
-python3 -m pip install -r ukb_omop_agent/requirements-qc.txt
-python3 ukb_omop_agent/plot_qc.py \
+python3 -m pip install -r omop_skill/review/requirements-qc.txt
+python3 omop_skill/review/plot_qc.py \
   --run "$RUN_DIR" \
   --omop "$RUN_DIR/omop" \
   --review "$RUN_DIR/mapping_review.csv"
@@ -87,7 +87,7 @@ This writes `graphical_qc.png`, `graphical_qc.pdf`, `graphical_qc.json`, `mappin
 To refresh only the detailed CSV and JSON inventory from an existing applied run, without replotting:
 
 ```bash
-python3 ukb_omop_agent/mapping_inventory.py \
+python3 omop_skill/review/mapping_inventory.py \
   --run "$RUN_DIR" \
   --omop "$RUN_DIR/omop" \
   --review "$RUN_DIR/mapping_review.csv"
@@ -105,7 +105,7 @@ The output is a **pilot subset** of OMOP 5.4 tables: person, observation_period,
 
 ## AD, PD, T2D, and blood assays
 
-For the 10,000-participant **AD, PD, T2D, glucose, HDL, LDL, triglycerides, and cholesterol** analysis, use the [UKB disease and lab workflow](ukb/AD_PD_T2D_LABS.md). Its scripts and versioned specification are part of `ukb_omop_agent/`; it calls the same `general_agent.py` for inspect, apply, and QC. `solvi/` is only the local output directory for prepared input, mapping results, and figures. From the repository root, run `bash ukb_omop_agent/ukb/run_ad_pd_t2d_labs.sh` with the subcommands in that guide.
+For the 10,000-participant **AD, PD, T2D, glucose, HDL, LDL, triglycerides, and cholesterol** analysis, use the [UKB disease and lab workflow](ukb/AD_PD_T2D_LABS.md). Its scripts and versioned specification are part of `omop_skill/review/`; it calls the same `general_agent.py` for inspect, apply, and QC. `solvi/` is only the local output directory for prepared input, mapping results, and figures. From the repository root, run `bash omop_skill/review/ukb/run_ad_pd_t2d_labs.sh` with the subcommands in that guide.
 
 ## Other source layouts
 
@@ -116,5 +116,5 @@ For the 10,000-participant **AD, PD, T2D, glucose, HDL, LDL, triglycerides, and 
 The agent currently writes Condition, Measurement, Observation, and Procedure events. Other target domains fail explicitly during apply; add a domain writer before approving them. Output tables have pilot columns, not every column of a deployable OMOP CDM database. The technical observation period spans dated events and is not verified enrollment. Type concepts remain 0 unless declared in a source spec. The same Athena release should be used for inspection and application.
 
 ```bash
-python3 -m unittest discover -s ukb_omop_agent/tests
+python3 -m unittest discover -s omop_skill/review/tests
 ```

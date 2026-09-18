@@ -1,11 +1,12 @@
 # omop_skill: raw source to OMOP contract tables (MVP)
 
-A Claude skill plus three scripts. Converts raw source CSVs into the four OMOP tables of `contract/data_contract.md`, one folder per site. That is the input subproject 2 reads.
+A skill for any AI agent, plus the scripts it runs. Converts raw source data into the four OMOP tables of `contract/data_contract.md`, one folder per site, and checks them. That is the input subproject 2 reads.
 
 | Step | Done by | File |
 |---|---|---|
 | Profile the source | DuckDB `SUMMARIZE` | `scripts/profile_source.py` |
-| Write the mapping | Claude, following the skill | `mappings/<source>.yaml` |
+| Write the mapping (route A) | An AI agent following `SKILL.md`, reviewed by a person | `mappings/<source>.yaml` |
+| Propose and approve vocabulary targets (route B) | Athena proposals, a person approves | `review/general_agent.py`, `review/plot_qc.py` |
 | Run the mapping | DuckDB | `scripts/run_mapping.py` |
 | Check the output | pandas, against `contract.yaml` | `scripts/validate_contract.py` |
 | Quality report | DuckDB and pandas: completeness, dates, mapping rate | `scripts/qc_report.py` |
@@ -14,7 +15,8 @@ A Claude skill plus three scripts. Converts raw source CSVs into the four OMOP t
 
 `contract.yaml` is the current data contract (2026-09-18, 22 concept IDs), used by `mappings/synthea_3.3.0_contract_rev3.yaml`. `contract_rev1.yaml` is revision 1, which `cohort_2` and `mappings/synthea_3.3.0.yaml` follow.
 
-The skill itself lives in `.claude/skills/omop-etl/SKILL.md`, so Claude Code picks it up when you open the repo.
+The instructions live in `SKILL.md` in this folder. `AGENTS.md` in the repository root points other agents to it, and Claude Code finds it through `.claude/skills/omop-etl/`.
+Route B, the vocabulary review for sources such as UK Biobank, lives in [`review/`](review/README.md).
 
 ## Run it on cohort_2 (Synthea 3.3.0, five sites)
 
