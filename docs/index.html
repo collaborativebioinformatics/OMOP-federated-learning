@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMOPFLARE — federated learning on OMOP</title>
+<style>
+  :root{
+    --surface:#fcfcfb; --raised:#ffffff; --ink:#1a1a19; --muted:#5c5c58; --grid:#e4e4e0;
+    --blue:#2a78d6; --orange:#eb6834; --green:#1baf7a; --violet:#4a3aa7;
+  }
+  [data-theme="dark"]{
+    --surface:#1a1a19; --raised:#242422; --ink:#f2f2ef; --muted:#a3a39c; --grid:#38382f;
+    --blue:#3987e5; --orange:#d95926; --green:#199e70; --violet:#9085e9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);
+    font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    transition:background .2s,color .2s}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{padding:56px 0 28px;border-bottom:1px solid var(--grid)}
+  h1{font-size:40px;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:18px;margin:0}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .pill{border:1px solid var(--grid);border-radius:999px;padding:4px 11px;font-size:13px;color:var(--muted)}
+  section{padding:40px 0;border-bottom:1px solid var(--grid)}
+  h2{font-size:24px;margin:0 0 4px;letter-spacing:-.01em}
+  .lede{color:var(--muted);margin:0 0 22px;max-width:62ch}
+  .theme{position:fixed;top:14px;right:14px;z-index:20;background:var(--raised);
+    border:1px solid var(--grid);color:var(--muted);border-radius:999px;
+    padding:7px 13px;font-size:13px;cursor:pointer}
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .node{background:var(--raised);border:1px solid var(--grid);border-left:3px solid var(--c);
+    border-radius:10px;padding:13px;cursor:pointer;transition:transform .12s,box-shadow .12s}
+  .node:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.07)}
+  .node[aria-selected="true"]{box-shadow:0 0 0 2px var(--c) inset}
+  .node .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .node .t{font-weight:600;margin-top:3px;font-size:15px}
+  .node .m{color:var(--muted);font-size:13px;margin-top:3px}
+  .detail{margin-top:14px;background:var(--raised);border:1px solid var(--grid);
+    border-radius:10px;padding:18px 20px;min-height:132px}
+  .detail h3{margin:0 0 8px;font-size:17px}
+  .detail p{margin:0 0 8px;max-width:72ch}
+  .detail p:last-child{margin-bottom:0}
+  .detail .why{color:var(--muted);font-size:14px}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--grid)}
+  th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{border:1px solid var(--grid);background:var(--raised);color:var(--muted);
+    border-radius:8px;padding:6px 13px;font-size:14px;cursor:pointer}
+  .tab[aria-selected="true"]{color:var(--ink);border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:12px}
+  .card{background:var(--raised);border:1px solid var(--grid);border-radius:10px;padding:16px}
+  .card h4{margin:0 0 6px;font-size:15px}
+  .card p{margin:0;color:var(--muted);font-size:14px}
+  .stat{font-size:27px;font-weight:650;letter-spacing:-.02em}
+  .stat small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:2px}
+  .bad{color:var(--orange)} .good{color:var(--green)}
+  figure{margin:0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:8px}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .tip{position:fixed;pointer-events:none;background:var(--raised);border:1px solid var(--grid);
+    border-radius:8px;padding:7px 10px;font-size:13px;opacity:0;transition:opacity .1s;z-index:30;
+    box-shadow:0 6px 18px rgba(0,0,0,.1)}
+  footer{padding:30px 0 60px;color:var(--muted);font-size:14px}
+  a{color:var(--blue)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media(max-width:860px){.flow{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<button class="theme" id="theme">dark</button>
+
+<header><div class="wrap">
+  <h1>OMOPFLARE</h1>
+  <p class="sub">Getting any health dataset into OMOP, then training across sites without moving a patient.</p>
+  <div class="pills">
+    <span class="pill">OMOP CDM 5.3 / 5.4</span>
+    <span class="pill">NVFlare 2.9</span>
+    <span class="pill">DuckDB</span>
+    <span class="pill">3.39B rows benchmarked</span>
+    <span class="pill">real MIMIC-IV</span>
+  </div>
+</div></header>
+
+<section><div class="wrap">
+  <h2>The pipeline</h2>
+  <p class="lede">Click a stage.</p>
+  <div class="flow" id="flow"></div>
+  <div class="detail" id="detail"></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Inputs</h2>
+  <p class="lede">Four datasets, two of them real patients.</p>
+  <div class="tabs" id="dstabs"></div>
+  <div id="dsbody"></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Approaches</h2>
+  <p class="lede">Correctness rules exist because breaking them gives a wrong answer that looks right.
+  Performance tricks exist because the naive version is 5x to 400x slower.</p>
+  <div class="tabs" id="ruletabs"></div>
+  <div class="cards" id="rules"></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Evaluation</h2>
+  <div class="two">
+    <figure>
+      <h3 style="font-size:16px;margin:0 0 2px">Federation beats local as data fragments</h3>
+      <p class="lede" style="margin-bottom:10px;font-size:14px">
+        One real cohort of 964 patients, split across more sites. Hover a point.</p>
+      <svg id="acc" viewBox="0 0 440 250" width="100%" height="250" role="img"></svg>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--blue)"></i>federated</span>
+        <span><i class="swatch" style="background:var(--green)"></i>centralized</span>
+        <span><i class="swatch" style="background:var(--orange)"></i>local</span>
+      </div>
+    </figure>
+    <figure>
+      <h3 style="font-size:16px;margin:0 0 2px">Cost tracks data, memory does not</h3>
+      <p class="lede" style="margin-bottom:10px;font-size:14px">
+        MIMIC's real row density replicated to 1M patients. Hover a bar.</p>
+      <svg id="scale" viewBox="0 0 440 250" width="100%" height="250" role="img"></svg>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--blue)"></i>duckdb scan</span>
+        <span><i class="swatch" style="background:var(--violet)"></i>design matrix</span>
+        <span><i class="swatch" style="background:var(--green)"></i>training epoch</span>
+      </div>
+    </figure>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>What real data broke</h2>
+  <p class="lede">Every one of these passed on Synthea and failed on the first real export.</p>
+  <table id="bugs"></table>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Numbers</h2>
+  <div class="cards" id="stats"></div>
+</div></section>
+
+<footer><div class="wrap">
+  Project 5, Everything OMOP.
+  Code at <a href="https://github.com/collaborativebioinformatics/OMOP-federated-learning">collaborativebioinformatics/OMOP-federated-learning</a>.
+  Every figure regenerates from <code>examples/scale_benchmark.py</code> and <code>examples/fl_benchmark.py</code>.
+</div></footer>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---------- theme ---------- */
+const themeBtn = $("#theme");
+themeBtn.onclick = () => {
+  const dark = document.body.dataset.theme === "dark";
+  document.body.dataset.theme = dark ? "" : "dark";
+  themeBtn.textContent = dark ? "dark" : "light";
+  draw();
+};
+
+/* ---------- pipeline ---------- */
+const STAGES = [
+  { k:"01", t:"Source", m:"Synthea, UKB, MIMIC", c:"var(--orange)",
+    h:"Any tabular health data",
+    p:["Synthea generates the synthetic cohorts. UK Biobank and MIMIC-IV bring real records.",
+       "None of them arrive in OMOP."],
+    why:"synthea_cohorts/, ukb_omop_agent/" },
+  { k:"02", t:"Mapping", m:"skill + agent", c:"var(--orange)",
+    h:"Source to OMOP, reviewed by a human",
+    p:["A Claude skill profiles the source with DuckDB, writes a YAML mapping, runs it and validates the result against the contract.",
+       "The UKB agent proposes ICD-10 to standard-concept matches from a local Athena vocabulary. A proposal is not a mapping: a person approves each target before it is written."],
+    why:"omop_skill/, .claude/skills/omop-etl/" },
+  { k:"03", t:"Contract", m:"4 tables", c:"var(--violet)",
+    h:"The handover both subprojects agree on",
+    p:["person, observation_period, measurement, condition_occurrence. Fixed columns, fixed order, dates as YYYY-MM-DD, concept IDs pinned in writing.",
+       "Subproject 1 writes it, subproject 2 reads it, and neither can drift without the other noticing."],
+    why:"contract/data_contract.md" },
+  { k:"04", t:"omopflare", m:"spec, extract, load", c:"var(--blue)",
+    h:"The dataloader",
+    p:["A frozen FeatureSpec is agreed from a counting round, then every site extracts the same columns in the same order.",
+       "DuckDB does the landmarking; tables never leave disk; batches stream out as Arrow."],
+    why:"src/omopflare/" },
+  { k:"05", t:"NVFlare", m:"FedAvg", c:"var(--green)",
+    h:"Training, not wrapped",
+    p:["One client per site. Weights move, patients do not.",
+       "omopflare does not wrap NVFlare: the example builds a FedAvgRecipe and runs the client loop straight from NVFlare's own API."],
+    why:"examples/mimic_mortality/, examples/omop_t2dm/" },
+];
+const flow = $("#flow"), detail = $("#detail");
+STAGES.forEach((s, i) => {
+  const el = document.createElement("div");
+  el.className = "node"; el.style.setProperty("--c", s.c);
+  el.setAttribute("role","button"); el.tabIndex = 0;
+  el.innerHTML = `<div class="k">${s.k}</div><div class="t">${s.t}</div><div class="m">${s.m}</div>`;
+  const pick = () => {
+    [...flow.children].forEach(n => n.setAttribute("aria-selected","false"));
+    el.setAttribute("aria-selected","true");
+    detail.innerHTML = `<h3>${s.h}</h3>${s.p.map(t=>`<p>${t}</p>`).join("")}<p class="why"><code>${s.why}</code></p>`;
+  };
+  el.onclick = pick;
+  el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+  flow.appendChild(el);
+  if (i === 3) pick();
+});
+
+/* ---------- datasets ---------- */
+const DATASETS = [
+  { name:"MIMIC-IV demo", real:true, rows:[
+      ["Patients","100 real ICU stays, deidentified"],
+      ["Access","Open on PhysioNet, no credentials"],
+      ["Sites","3, split by hash of person_id"],
+      ["Why it matters","The only real OMOP export here. It broke three assumptions Synthea never did."]]},
+  { name:"UK Biobank", real:true, rows:[
+      ["Patients","Pilot subset"],
+      ["Mapping","ICD-10 to standard concepts via local Athena, human approved"],
+      ["Status","Agent and QC in place, not yet joined to omopflare"],
+      ["Why it matters","The biobank path the project was set up to prove."]]},
+  { name:"Synthea cohort_2", real:false, rows:[
+      ["Patients","5,773 across 5 sites"],
+      ["Design","Different states, ages, sizes, one gender-only site"],
+      ["T2DM prevalence","1.1% to 17.4%, genuinely non-IID"],
+      ["Why it matters","The federation testbed. Age is the lever that makes sites differ."]]},
+  { name:"Synthea cohort_1 / 3", real:false, rows:[
+      ["Patients","98, resampled to 50,000"],
+      ["Caveat","Every patient is diabetic, so predicting diabetes is circular"],
+      ["Caveat","Labels separate perfectly on missingness"],
+      ["Why it matters","Both now fail the observation-period check, which is the right answer."]]},
+];
+const dstabs = $("#dstabs"), dsbody = $("#dsbody");
+DATASETS.forEach((d, i) => {
+  const b = document.createElement("button");
+  b.className = "tab"; b.textContent = d.name + (d.real ? "  ●" : "");
+  b.title = d.real ? "real patients" : "synthetic";
+  b.onclick = () => {
+    [...dstabs.children].forEach(x => x.setAttribute("aria-selected","false"));
+    b.setAttribute("aria-selected","true");
+    dsbody.innerHTML = "<table>" + d.rows.map(r =>
+      `<tr><th style="width:26%">${r[0]}</th><td>${r[1]}</td></tr>`).join("") + "</table>";
+  };
+  dstabs.appendChild(b);
+  if (i === 0) b.click();
+});
+
+/* ---------- rules ---------- */
+const GROUPS = {
+  "Correctness": [
+    ["Frozen feature spec",
+     "FedAvg averages weight tensors, so every site must emit identical columns in identical order. Sites never discover their own features; one missing a concept contributes an all-missing column."],
+    ["Spec by negotiation",
+     "Each site reports suppressed per-concept patient counts, and the agreed spec is the intersection. Hand-writing it left cohort_2 carrying two dead all-missing columns."],
+    ["Units are pinned",
+     "Glucose in mg/dL and mmol/L differ eighteenfold. Rows in any other unit are dropped, never converted silently."],
+    ["Landmarking is structural",
+     "Only events strictly before the index date, inside the lookback, inside the patient's observation period. A value recorded on the landmark itself cannot leak in."],
+    ["Missingness is checked",
+     "Whether a test was ordered is signal. leakage_report scores presence alone against the outcome, with a significance guard so a 7-patient coincidence is not called separation."],
+    ["Only safe statistics leave",
+     "Count, sum and sum of squares combine into one scaler. Min and max are excluded because each is one patient's value. Counts below the cell threshold are withheld."],
+  ],
+  "Performance": [
+    ["Push the filter into the scan",
+     "Concept, unit, range and date filters go into the DuckDB query, so a billion-row measurement table costs memory only for rows that survive. Tables stay on disk as views over parquet or CSV."],
+    ["Batch indexing, not row indexing",
+     "Torch calls __getitem__ once per row by default, so a tabular cohort spends its epoch in Python. Driving a BatchSampler takes 1M rows from 0.61M to 2.88M rows/s."],
+    ["Keep sparse sparse",
+     "CohortDataset holds CSR and densifies one batch at a time. A 200k by 2000 matrix at 2% occupancy costs 0.097 GB instead of 1.60 GB."],
+    ["Right sparse library per rank",
+     "pydata/sparse for 3D sequence tensors, which scipy cannot express and which need a NaN fill. scipy CSR for 2D, whose batched row slicing is 17x faster than GCXS."],
+    ["Statistics as SQL",
+     "Counts, sums and sums of squares come back as aggregates rather than from a materialised matrix. Same speed, one less allocation, and it scales with spec width."],
+    ["One query per spec, not per feature",
+     "Sequence extraction joins a registered feature table instead of emitting a column per concept, so a spec of thousands of codes stays a single query."],
+  ],
+};
+const ruletabs = $("#ruletabs"), rulebox = $("#rules");
+Object.keys(GROUPS).forEach((name, i) => {
+  const b = document.createElement("button");
+  b.className = "tab"; b.textContent = name;
+  b.onclick = () => {
+    [...ruletabs.children].forEach(x => x.setAttribute("aria-selected","false"));
+    b.setAttribute("aria-selected","true");
+    rulebox.innerHTML = GROUPS[name].map(r => `<div class="card"><h4>${r[0]}</h4><p>${r[1]}</p></div>`).join("");
+  };
+  ruletabs.appendChild(b);
+  if (i === 0) b.click();
+});
+
+/* ---------- bugs ---------- */
+const BUGS = [
+  ["PERSON.csv invisible","Table discovery was case-sensitive","MIMIC-IV"],
+  ["person_id not found","DuckDB echoes a column's own case, so PERSON_ID came back uppercase","MIMIC-IV"],
+  ["Conversion error at row 46,000","Type inference sampled 20k rows, then met HR [bpm]","MIMIC-IV"],
+  ["Clipping never ran","The observation-period view was built and never referenced","found while refactoring"],
+  ["False leakage alarm","7 measured patients all surviving is a 1-in-5 coincidence, not separation","MIMIC-IV"],
+  ["0.74 AUROC from nothing","The label was decided by who had labs in the window","Synthea cohort_3"],
+];
+$("#bugs").innerHTML = "<tr><th>Symptom</th><th>Cause</th><th>Found on</th></tr>" +
+  BUGS.map(b => `<tr><td>${b[0]}</td><td style="color:var(--muted)">${b[1]}</td><td><code>${b[2]}</code></td></tr>`).join("");
+
+/* ---------- stats ---------- */
+const STATS = [
+  ["3.39B", "measurement rows in one site, 15 GB parquet"],
+  ["7.9s", "to scan them; 7.7s to build the design matrix"],
+  ["6.2 GB", "peak memory at 1M patients"],
+  ["4.7x", "faster epochs after batch indexing"],
+  ["0.765 → 0.881", "AUROC, local vs federated at 16 sites"],
+  ["23", "tests, each guarding a bug that happened"],
+];
+$("#stats").innerHTML = STATS.map(s =>
+  `<div class="card"><div class="stat">${s[0]}<small>${s[1]}</small></div></div>`).join("");
+
+/* ---------- charts ---------- */
+const ACC = [
+  {sites:1,  n:674, local:.869, fed:.889, cen:.877},
+  {sites:2,  n:337, local:.844, fed:.886, cen:.862},
+  {sites:4,  n:168, local:.799, fed:.874, cen:.853},
+  {sites:8,  n:84,  local:.805, fed:.916, cen:.867},
+  {sites:16, n:42,  local:.765, fed:.881, cen:.871},
+];
+const SCALE = [
+  {people:"1k",   rows:"3.4M",   scan:.14, build:.03, epoch:.03, gb:1.0},
+  {people:"10k",  rows:"33.9M",  scan:.12, build:.10, epoch:.01, gb:1.3},
+  {people:"100k", rows:"339M",   scan:.78, build:.76, epoch:.09, gb:1.8},
+  {people:"1M",   rows:"3,386M", scan:7.87, build:7.66, epoch:1.08, gb:6.2},
+];
+const tip = $("#tip");
+const showTip = (e, html) => {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 220) + "px";
+  tip.style.top = (e.clientY - 10) + "px";
+};
+const hideTip = () => tip.style.opacity = 0;
+const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+const ns = "http://www.w3.org/2000/svg";
+const mk = (p, tag, attrs, text) => {
+  const el = document.createElementNS(ns, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (text != null) el.textContent = text;
+  p.appendChild(el); return el;
+};
+
+function drawAccuracy() {
+  const svg = $("#acc"); svg.innerHTML = "";
+  const L = 42, R = 14, T = 12, B = 34, W = 440, H = 250;
+  const x = i => L + i * (W - L - R) / (ACC.length - 1);
+  const lo = .74, hi = .93;
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  for (let v = .76; v <= .92; v += .04) {
+    mk(svg, "line", {x1:L, x2:W-R, y1:y(v), y2:y(v), stroke:css("--grid"), "stroke-width":1});
+    mk(svg, "text", {x:L-7, y:y(v)+4, "text-anchor":"end", fill:css("--muted"), "font-size":10}, v.toFixed(2));
+  }
+  ACC.forEach((d, i) => mk(svg, "text",
+    {x:x(i), y:H-14, "text-anchor":"middle", fill:css("--muted"), "font-size":10},
+    d.sites + (d.sites === 1 ? " site" : " sites")));
+  [["cen","--green"],["fed","--blue"],["local","--orange"]].forEach(([key, colour]) => {
+    const c = css(colour);
+    mk(svg, "polyline", {fill:"none", stroke:c, "stroke-width":2,
+      points: ACC.map((d,i) => `${x(i)},${y(d[key])}`).join(" ")});
+    ACC.forEach((d, i) => {
+      const dot = mk(svg, "circle", {cx:x(i), cy:y(d[key]), r:4.5, fill:c});
+      dot.style.cursor = "crosshair";
+      dot.onmousemove = e => showTip(e,
+        `<b>${d.sites} site${d.sites>1?"s":""}</b>, ${d.n}/site<br>
+         local ${d.local.toFixed(3)}<br>federated ${d.fed.toFixed(3)}<br>centralized ${d.cen.toFixed(3)}`);
+      dot.onmouseleave = hideTip;
+    });
+  });
+}
+
+function drawScale() {
+  const svg = $("#scale"); svg.innerHTML = "";
+  const L = 40, R = 12, T = 16, B = 42, W = 440, H = 250;
+  const band = (W - L - R) / SCALE.length;
+  const max = 9;
+  const y = v => T + (1 - Math.log10(v * 100 + 1) / Math.log10(max * 100 + 1)) * (H - T - B);
+  const base = H - B;
+  mk(svg, "line", {x1:L, x2:W-R, y1:base, y2:base, stroke:css("--grid"), "stroke-width":1});
+  SCALE.forEach((d, i) => {
+    const groups = [["scan","--blue"],["build","--violet"],["epoch","--green"]];
+    const bw = band / 4.6;
+    groups.forEach(([key, colour], g) => {
+      const bx = L + i * band + band/2 + (g - 1) * (bw + 3) - bw/2;
+      const top = y(d[key]);
+      const r = mk(svg, "rect", {x:bx, y:top, width:bw, height:Math.max(base - top, 1.5),
+        fill:css(colour), rx:2});
+      r.style.cursor = "crosshair";
+      r.onmousemove = e => showTip(e,
+        `<b>${d.people} patients</b>, ${d.rows} rows<br>
+         scan ${d.scan}s<br>design matrix ${d.build}s<br>epoch ${d.epoch}s<br>peak ${d.gb} GB`);
+      r.onmouseleave = hideTip;
+    });
+    mk(svg, "text", {x:L + i*band + band/2, y:H-19, "text-anchor":"middle",
+      fill:css("--muted"), "font-size":10}, d.people);
+    mk(svg, "text", {x:L + i*band + band/2, y:H-6, "text-anchor":"middle",
+      fill:css("--muted"), "font-size":9}, d.gb + " GB peak");
+  });
+  [0.01, 0.1, 1, 9].forEach(v => mk(svg, "text",
+    {x:L-6, y:y(v)+4, "text-anchor":"end", fill:css("--muted"), "font-size":10},
+    v < 1 ? v + "s" : v + "s"));
+}
+
+function draw() { drawAccuracy(); drawScale(); }
+draw();
+addEventListener("resize", draw);
+</script>
+</body>
+</html>

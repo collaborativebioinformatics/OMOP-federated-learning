@@ -39,6 +39,8 @@ flowchart TB
 **Subproject 2** runs federated learning over the result.
 The diagram above is the plan; `plan.md` has the schedule.
 
+A one-page summary of the whole project is in [`docs/index.html`](docs/index.html); open it in a browser.
+
 ## Layout
 
 | path | what |
